@@ -14,12 +14,15 @@ Complete reference for TSDoc tags used in TypeScript documentation.
 | `@defaultValue value` | Document default value for a property | Optional properties with defaults |
 | `@deprecated reason` | Mark as deprecated with migration path | Any declaration being phased out |
 
-## Linking Tags (Inline)
+## Linking & Reference Tags
 
 | Tag | Usage | When to Use |
 |-----|-------|-------------|
 | `{@link SymbolName}` | Link to another declaration | Referencing related types, functions, or classes |
 | `{@link SymbolName \| display text}` | Link with custom display text | When the symbol name isn't clear enough in context |
+| `@see {@link SymbolName}` | Create a "See Also" reference | Pointing to related declarations (distinct from inline `{@link}`) |
+
+> **Note:** The `\|` in the table above is a Markdown rendering escape. In your actual TSDoc comment, write `{@link SymbolName | display text}` with a plain `|`.
 
 ## Visibility & Scope Tags
 
@@ -30,11 +33,19 @@ Complete reference for TSDoc tags used in TypeScript documentation.
 | `@privateRemarks` | Notes for maintainers only (stripped from public docs) | Implementation rationale that consumers don't need |
 | `@packageDocumentation` | Mark a file-level comment as module documentation | Top of file for module-level docs |
 
+## Release Stage Tags
+
+| Tag | Usage | When to Use |
+|-----|-------|-------------|
+| `@alpha` | Mark as alpha-quality | Early-stage API that may change significantly |
+| `@beta` | Mark as beta-quality | API approaching stability but may still change |
+| `@experimental` | Mark as experimental | Alternative to `@beta` in some toolchains |
+
 ## Error & Exception Tags
 
 | Tag | Usage | When to Use |
 |-----|-------|-------------|
-| `@throws desc` | Document thrown errors | Functions that throw — describe when and what |
+| `@throws` | Document thrown errors with type or description | Functions that throw — describe when and what type |
 
 ## TSDoc vs JSDoc Differences
 
