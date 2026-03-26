@@ -1,5 +1,5 @@
 ---
-name: tsdoc-typescript
+name: typescript-tsdoc
 description: "Use when writing or modifying TypeScript (.ts/.tsx) files, or when asked to document existing TypeScript code. Covers TSDoc conventions for functions, methods, interfaces, type aliases, classes, enums, constants, React components, and module-level documentation. Do NOT trigger for .js/.jsx files or non-TypeScript contexts."
 ---
 
