@@ -39,12 +39,7 @@ Operational guide for documenting TypeScript code using TSDoc conventions. Apply
 
 ## Detection
 
-When the skill activates, scan for existing documentation patterns before writing anything:
-
-```bash
-# Check for existing TSDoc/JSDoc in the project
-grep -r "\/\*\*" --include="*.ts" --include="*.tsx" -l . | head -10
-```
+When the skill activates, scan for existing documentation patterns before writing anything. Search for `/**` blocks in `.ts` and `.tsx` files to find existing TSDoc/JSDoc usage.
 
 If results exist, read 2-3 documented files to learn the existing style. Match it. If no results, apply the defaults below.
 
