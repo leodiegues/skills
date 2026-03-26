@@ -7,6 +7,8 @@ description: "Use when writing or modifying TypeScript (.ts/.tsx) files, or when
 
 Operational guide for documenting TypeScript code using TSDoc conventions. Apply when writing new `.ts`/`.tsx` code or when asked to document existing TypeScript.
 
+**RULE: Never add comments inside function bodies, method bodies, or any executable block. All documentation goes on declarations via TSDoc blocks.**
+
 **Before acting**, read the reference if you need the full tag list or syntax details:
 
 - **`references/tsdoc-tags.md`** — All TSDoc tags, ordering convention, usage scenarios, and TSDoc vs JSDoc differences.
@@ -58,7 +60,7 @@ If results exist, read 2-3 documented files to learn the existing style. Match i
  * @param operation - The async function to retry
  * @param maxAttempts - Maximum number of attempts before throwing
  * @returns The result of the first successful attempt
- * @throws The last error encountered after all attempts are exhausted
+ * @throws If all retry attempts are exhausted
  *
  * @example
  * ```typescript
@@ -180,6 +182,7 @@ export const MAX_BULK_IMPORT_SIZE = 500;
 /**
  * Renders a paginated data table with sortable columns.
  *
+ * @typeParam T - The type of each row object
  * @param props - {@link DataTableProps}
  * @returns The rendered table element
  *
