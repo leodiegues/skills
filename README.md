@@ -7,6 +7,7 @@ A collection of operational skills for AI coding agents (Claude Code, etc.). Eac
 | Skill | Description |
 |-------|-------------|
 | [jj-lazyjj](skills/jj-lazyjj/SKILL.md) | Jujutsu (jj) version control with LazyJJ aliases — stacks, bookmarks, sync, push, stacked PRs, Claude workspaces |
+| [tsdoc-typescript](skills/tsdoc-typescript/SKILL.md) | TSDoc documentation conventions for TypeScript — what to document, tag usage, examples by context |
 
 ## How Skills Work
 
