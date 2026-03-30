@@ -9,6 +9,8 @@ A collection of operational skills for AI coding agents (Claude Code, etc.). Eac
 | [jj-lazyjj](skills/jj-lazyjj/SKILL.md) | Jujutsu (jj) version control with LazyJJ aliases — stacks, bookmarks, sync, push, stacked PRs, Claude workspaces |
 | [commit-msg](skills/commit-msg/SKILL.md) | Conventional commit message generation from diffs — type detection, scope derivation, monorepo support |
 | [typescript-tsdoc](skills/typescript-tsdoc/SKILL.md) | TSDoc documentation conventions for TypeScript — what to document, tag usage, examples by context |
+| [python-testing](skills/python-testing/SKILL.md) | Python testing with pytest — fixtures, mocking, async tests, coverage, and modern testing ecosystem |
+| [python-docstrings](skills/python-docstrings/SKILL.md) | Python docstring generation using Google convention — add, fix, or convert docstrings for modules, classes, and functions |
 
 ## How Skills Work
 
