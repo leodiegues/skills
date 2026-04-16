@@ -20,7 +20,7 @@ Docstrings must match the natural language used in the repository. Detect it by 
 
 1. **Existing docstrings** in the target file or nearby files — if most are in Portuguese, write in Portuguese.
 2. **Code comments** (`#` inline comments) — these reveal the team's working language.
-3. **Commit messages** (if accessible via `jj log` or `git log --oneline -20`) — a strong signal of team convention.
+3. **Commit messages** — a strong signal of team convention.
 4. **README or CONTRIBUTING docs** at the repo root.
 5. **Default to English** if no signal is found.
 
