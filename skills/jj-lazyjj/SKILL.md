@@ -238,3 +238,25 @@ jj new                  # or jj edit @ to return to where you were
 ```bash
 jj undo
 ```
+
+## Workflow Guardrails
+
+### Before committing/describing
+- Always read the diff first: `jj diff` (or `jj diffs` for summary)
+- Derive scope from file paths, write conventional commit message
+- Use `jj describe -m "type(scope): subject"` — never leave empty descriptions
+
+### Before pushing
+- Run `jj status` to check for conflicts — do not push conflicted changes
+- Ensure bookmark is set: `jj bookmark list` or `jj stack-view`
+- Use `jj stack-submit` for stacks, `jj git push` for single bookmarks
+
+### Before rebasing
+- Prefer `jj stack-sync` (fetches + rebases in one step)
+- After rebase, check for conflicts: `jj status`
+- Clean up empty changes after sync: `jj stack-gc`
+
+### After finishing a feature
+- Squash fixups: `jj squash` to fold current into parent
+- Clean empty commits: `jj stack-gc`
+- Verify stack looks clean: `jj stack-view`
