@@ -11,6 +11,7 @@ A collection of operational skills for AI coding agents (Claude Code, etc.). Eac
 | [typescript-tsdoc](skills/typescript-tsdoc/SKILL.md) | TSDoc documentation conventions for TypeScript — what to document, tag usage, examples by context |
 | [python-testing](skills/python-testing/SKILL.md) | Python testing with pytest — fixtures, mocking, async tests, coverage, and modern testing ecosystem |
 | [python-docstrings](skills/python-docstrings/SKILL.md) | Python docstring generation using Google convention — add, fix, or convert docstrings for modules, classes, and functions |
+| [pair-programming](skills/pair-programming/SKILL.md) | Approval-gated pair programming workflow — plan-first, AskUserQuestion clarifications, visuals required |
 
 ## How Skills Work
 
