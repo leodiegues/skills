@@ -85,14 +85,106 @@ jj workspaces allow multiple Claude sessions on different features simultaneousl
 jj claude-start feature-a
 jj claude-start feature-b
 
-# List all workspaces
+# List all workspaces (shows current @ for each)
 jj workspace list
 
 # Attach to a specific session
 tmux attach -t feature-a
 ```
 
-Each workspace has its own working copy but shares the same repo state (commits, bookmarks, etc.). Changes in one workspace are visible to others via the commit graph.
+This is the **default mode** for non-trivial Claude work. The next two sections explain what's safe to do in parallel and what isn't.
+
+---
+
+## Concurrency Model
+
+jj workspaces use **optimistic concurrency** — there are no locks. Understanding what's shared vs per-workspace is the whole game.
+
+### Shared across all workspaces
+
+| State | Implication |
+|---|---|
+| Commit graph (all change-ids) | A commit you create in workspace A is visible in workspace B immediately |
+| Bookmarks | Setting/moving a bookmark in A affects B's view of it |
+| Operation log (`jj op log`) | All operations from all workspaces show in one log; `jj undo` from any workspace affects shared state |
+| Git remote refs | `jj git fetch` from any workspace updates `main@origin` etc. for everyone |
+| Push state | `jj git push` from any workspace pushes the shared bookmarks |
+
+### Per-workspace (isolated)
+
+| State | Implication |
+|---|---|
+| Working copy commit (`@`) | Each workspace has its own current change — they don't see each other's `@` |
+| Sparse patterns | Each workspace can sparse-checkout different files |
+| Filesystem files | Each workspace is a separate directory with separate file contents |
+
+### The one hazard: stale working copy
+
+A workspace becomes **stale** when its working-copy commit gets rewritten by another workspace. The most common trigger:
+
+```bash
+# Workspace A is editing change X (X is A's @)
+# Workspace B runs:  jj edit X  (or jj rebase that touches X, or jj squash, etc.)
+# → Workspace A is now STALE
+# → A's filesystem still has the old X contents, but the op log moved on
+```
+
+There is no error or warning at the moment of the conflict. You only see it when you next run a jj command in A:
+
+```
+The working copy is stale (not updated since operation abc123).
+Hint: Run `jj workspace update-stale` to update it.
+```
+
+**Recovery is always the same**:
+
+```bash
+# In the stale workspace:
+jj workspace update-stale     # syncs working copy to the latest op-log state
+jj status                     # confirm
+```
+
+If `update-stale` can't reconstruct the state (rare — happens if the original operation was abandoned), it creates a recovery commit so nothing is lost.
+
+---
+
+## Cross-Workspace Coordination Rules
+
+These rules let multiple Claudes work in parallel without stepping on each other:
+
+### 1. One bookmark per workspace
+
+Each workspace owns its own bookmark. Match the bookmark name to the workspace name when possible:
+
+```bash
+jj claude-start auth-refactor
+# Inside the workspace, the stack ends with:
+jj bookmark set auth-refactor -r @-     # or: jj create auth-refactor / jj tug
+```
+
+Two workspaces sharing one bookmark = race conditions on push. Don't.
+
+### 2. Each workspace builds its own stack from trunk
+
+Don't `jj edit` a change-id that's the `@` of another workspace. Instead, start fresh from trunk:
+
+```bash
+jj stack-start    # fetch + new change from trunk — independent of other workspaces
+```
+
+If two features genuinely share a base commit, that base commit should be pushed and merged first, then both workspaces rebase onto the new trunk via `jj stack-sync`.
+
+### 3. Fetch and push are free from any workspace
+
+`jj git fetch` and `jj git push` operate on shared state. Run them from whichever workspace is convenient — the result is visible everywhere.
+
+### 4. `jj undo` affects shared state
+
+`jj undo` reverses the last operation in the **shared** op log, regardless of which workspace ran it. Be careful undoing from one workspace if another is mid-task — you may undo their work too. Prefer `jj op log` first to see what you're about to reverse.
+
+### 5. Checkpoint often when working in parallel
+
+`jj claude-checkpoint "msg"` makes a clear save point. In parallel sessions, frequent checkpoints make `jj op log` readable and `jj op restore` precise.
 
 ---
 
@@ -109,27 +201,16 @@ jj workspace forget workspace-name
 rm -rf .jj-workspaces/workspace-name
 ```
 
+Always `jj workspace forget` **before** `rm -rf` — otherwise jj keeps the workspace in its registry and `jj workspace list` shows a phantom entry.
+
 ---
 
-## Why This Combination Works
+## Why This Works
 
-### Safe Experimentation
-jj's operation log means Claude can try things without risk:
-
-```bash
-jj undo                  # reverse Claude's last action
-jj op log                # see what Claude did
-jj op restore <id>       # jump back to any point
-```
-
-### Workspace Isolation
-Each Claude session works in its own workspace — no interference between concurrent sessions or with your main working copy.
-
-### First-Class Conflicts
-jj's conflict model means Claude can attempt merges/rebases without blocking. Conflicts are recorded, not errors. Resolve when convenient.
-
-### Checkpointing
-`jj claude-checkpoint` creates natural save points in the commit graph. Combined with `jj op log`, this gives complete history of what Claude did and when.
+- **Safe experimentation**: `jj undo` / `jj op log` / `jj op restore` give a complete time machine over the shared op log.
+- **Workspace isolation for files**: Each Claude edits files in its own directory — no merge conflicts at the filesystem level.
+- **First-class conflicts**: jj records conflicts in the tree rather than blocking operations, so rebases and syncs from one workspace never interrupt work in another.
+- **Checkpointing**: `jj claude-checkpoint` plus the shared op log give a clean record of what every Claude did and when.
 
 ---
 

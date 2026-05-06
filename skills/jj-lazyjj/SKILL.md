@@ -83,6 +83,43 @@ These are the critical differences from Git that affect every operation:
 6. **Conflicts are data.** Operations never fail due to conflicts — they're recorded in the tree. Resolve whenever you want.
 7. **`jj undo` is your safety net.** The operation log (`jj op log`) tracks everything. Almost nothing is destructive.
 
+## Workspace-First Mode (default for non-trivial work)
+
+**Rule: Any non-trivial task runs in its own jj workspace via `jj claude-start <name>`.** This keeps multiple Claude sessions from clobbering each other's working copy and lets you (or other agents) work on a different feature in parallel without coordination.
+
+### Decision rule
+
+| Task | Where to work |
+|---|---|
+| Multi-file feature, refactor, bugfix that needs >1 commit | **Workspace**: `jj claude-start <feature-name>` |
+| Anything that runs tests/builds while you keep working | **Workspace** (build noise won't block other Claudes) |
+| Single typo, one-line config tweak, read-only Q&A | **Main copy** (workspace overhead not worth it) |
+| Reviewing or summarizing existing changes | **Main copy** (no edits) |
+
+### Detect where you are
+
+Before starting any change, confirm whether you're in the main copy or a workspace:
+
+```bash
+jj workspace root              # prints the workspace root path
+pwd                            # if path contains .jj-workspaces/<name>, you're in a workspace
+jj workspace list              # shows all workspaces and their current @
+```
+
+### Naming convention
+
+One workspace per logical task. Name it after the feature/fix, not the date or session: `auth-refactor`, `db-migration`, `fix-login-redirect`. The name becomes the tmux session name and the directory under `.jj-workspaces/`.
+
+### Bookmark = workspace handoff
+
+**One bookmark per workspace.** Bookmarks are shared across all workspaces (only the working copy is per-workspace), so they are how parallel work gets pushed and reviewed independently. Match the bookmark name to the workspace name when possible.
+
+### Concurrency hazard you must know
+
+Two workspaces editing the **same change-id** silently produce a "stale working copy" in one of them — no error, no warning. Recovery is `jj workspace update-stale` (see Daily Ops below). Avoid this by giving each workspace its own stack of changes from trunk.
+
+For full concurrency model, cross-workspace coordination rules, and the typical AI-assisted session flow, **read `references/claude-workspaces.md`**.
+
 ## Daily Operations Quick Reference
 
 ### Starting work
@@ -147,6 +184,21 @@ jj stack-gc             # or: jj gc — abandon empty commits in stack
 jj abandon <rev>        # abandon a specific change
 ```
 
+### Workspaces (parallel Claude sessions)
+```bash
+jj claude-start <name>          # create workspace + tmux + Claude (default for non-trivial work)
+jj claude-stop <name>           # stop session and clean up
+jj claude-checkpoint "msg"      # save progress with description (in-workspace)
+jj workspace list               # see all active workspaces and their @
+jj workspace forget <name>      # untrack a workspace (does not delete files)
+```
+
+### Workspace recovery
+```bash
+jj workspace update-stale       # fix "stale working copy" after another workspace rewrote @
+```
+Run this in the affected workspace after you see a stale-working-copy message. Happens when another workspace edits/rebases a commit you had checked out — jj does not lock, so the resolution is explicit. See `references/claude-workspaces.md` for the full concurrency model.
+
 ## Bookmarks (= Git Branches)
 
 Bookmarks are JJ's equivalent of Git branches. They're named labels you attach to changes for pushing to remotes.
@@ -203,41 +255,86 @@ For AI-assisted resolution in Claude workspaces: `jj claude-resolve` (see `refer
 
 ## Common Patterns for Claude Code
 
-### "Commit my changes and push"
+These patterns are **workspace-first** (default mode). For trivial work, see "Quick fix in main copy" at the end.
+
+### "Start a new feature" (default entry point)
 ```bash
-jj describe -m "descriptive message"
-jj bookmark set feature-name -r @
+# From the main repo dir:
+jj claude-start auth-refactor          # creates .jj-workspaces/auth-refactor + tmux + Claude
+tmux attach -t auth-refactor           # attach if not already inside
+
+# Inside the workspace:
+jj stack-start                          # fresh change from latest trunk
+# ... edit files, run tests ...
+jj describe -m "feat(auth): refactor session handling"
+jj create auth-refactor                 # bookmark = workspace name
+jj new                                  # ready for next change in stack
+```
+
+### "Commit my changes and push" (inside a workspace)
+```bash
+jj describe -m "type(scope): subject"
+jj create <bookmark-name>               # or: jj tug if bookmark already exists
 jj new
-jj git push --bookmark feature-name
+jj stack-submit                         # smart push of the whole stack
 ```
 
-### "Create a new feature from trunk"
+### "Rebase onto latest main" (inside a workspace)
 ```bash
-jj stack-start
-# make changes
-jj describe -m "feature description"
-jj create feature-name
-jj new
-jj stack-submit
+jj stack-sync                           # fetch + rebase in one step
+# If conflicts:
+jj status                               # see conflicted files
+# resolve, then continue
 ```
 
-### "Rebase onto latest main"
+### "Fix something in an earlier change" (inside a workspace)
 ```bash
-jj stack-sync   # fetch + rebase in one step
+jj edit <change-id>                     # go to that change
+# make fixes — descendants auto-rebase
+jj new @-                               # return to top of stack (or jj edit <head>)
 ```
 
-### "Fix something in an earlier change"
+### "Run two Claudes in parallel"
 ```bash
-jj edit <change-id>     # go to that change
-# make fixes
-jj new                  # or jj edit @ to return to where you were
-# descendants auto-rebased
+# Terminal 1:
+jj claude-start auth-refactor
+tmux attach -t auth-refactor
+# Claude 1 works on auth — commits go on bookmark "auth-refactor"
+
+# Terminal 2 (different shell, same repo):
+jj claude-start db-migration
+tmux attach -t db-migration
+# Claude 2 works on db — commits go on bookmark "db-migration"
+
+# Both share commits/bookmarks/op-log/git-remote.
+# Either can run jj git fetch — visible to both immediately.
+# Each pushes its own bookmark via jj stack-submit.
 ```
+
+**Critical**: each Claude builds its OWN stack of changes from trunk. Never edit the same change-id from two workspaces — the second one will go stale.
 
 ### "Undo what I just did"
 ```bash
-jj undo
+jj undo                                 # works from any workspace; affects op log
 ```
+
+### "Recover from a stale working copy"
+```bash
+jj workspace update-stale               # run in the workspace that's stale
+jj status                               # confirm working copy is back in sync
+```
+
+### "Quick fix in main copy" (trivial-case escape hatch)
+For a single typo or one-line config tweak, the workspace overhead isn't worth it. Stay in the main repo dir:
+
+```bash
+# In main repo dir (no .jj-workspaces/ in pwd):
+jj describe -m "fix: typo in README"
+jj new
+jj git push --bookmark <name>
+```
+
+Use this only when: (a) the change is one or two lines, (b) no tests/builds need to run, (c) no other Claude is currently editing the same area.
 
 ## Workflow Guardrails
 
