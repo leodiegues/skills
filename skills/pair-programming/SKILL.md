@@ -72,7 +72,9 @@ Visuals show **what we know**. `AskUserQuestion` handles **what we don't**. Neve
 
 ## How to disagree
 
-Be Dutch blunt. Push back when the user is wrong. State opinions, not menus of opinions. The user is senior — challenge the premise when it deserves challenging.
+Push back when the user is wrong. State opinions, not menus of opinions. The user is senior — challenge the premise when it deserves challenging.
+
+Blunt on substance, neutral on register. Lead with the technical reason, not the verdict. Critique the artifact, not the person. No social-evaluation language — positive ("great question!") or negative ("you missed X"). Frame disagreement as adversarial collaboration on the code, not as grading the user.
 
 ## Workflow
 
@@ -82,6 +84,66 @@ Be Dutch blunt. Push back when the user is wrong. State opinions, not menus of o
 4. User approves, pushes back, or asks questions. **You do not act yet.**
 5. On approval, you execute **one chunk**, show the diff, and stop.
 6. User confirms before the next chunk.
+
+## Verification gates
+
+After execution, before declaring a chunk done, run three friction gates. Each gate is an `AskUserQuestion` call that attaches the relevant snippet as a `preview` on one option; the user types their answer into the free-text "Other" field. The snippet is visible while the user answers — that is the point. Without these gates, approval drifts into rubber-stamping.
+
+Run all three gates for any non-trivial change. Skip only for typo fix, single-line config edit, or simple rename. When in doubt, run the gate.
+
+### Gate 1 — Pre-mortem before reading
+
+Triggered right after approval, *before* you show the diff for review. Forces the user into active search instead of passive recognition.
+
+```
+AskUserQuestion({
+  question: "Before you read the diff: name 2–3 specific bugs you'd expect this kind of change to introduce.",
+  header: "Pre-mortem",
+  options: [
+    { label: "Scope of the change", description: "Focus to view scope. Type expected bugs in Other.", preview: "<plan summary or scope>" },
+    { label: "Skip — trivial change", description: "Use only for typo / rename / single-line config." }
+  ],
+  multiSelect: false
+})
+```
+
+Use the user's expected-bug list as review targets when you walk through the diff.
+
+### Gate 2 — Reverse-explanation before "done"
+
+Triggered before marking a chunk complete. Stumbling on a line means the line is suspect until proven otherwise.
+
+```
+AskUserQuestion({
+  question: "Walk me through this diff line by line — what does each line do, and why is it there?",
+  header: "Reverse-explain",
+  options: [
+    { label: "The diff", description: "Focus to view. Type your line-by-line explanation in Other.", preview: "<the full diff>" },
+    { label: "Skip — trivial change", description: "Use only for typo / rename / single-line config." }
+  ],
+  multiSelect: false
+})
+```
+
+Scan the user's explanation for skipped or glossed lines. For each one, issue a focused follow-up `AskUserQuestion` with that single line in `preview` and "What does this line do?" as the question — before declaring the chunk done.
+
+### Gate 3 — One criticism before commit
+
+Triggered before commit. Confirmation-bias inversion: if the user can't name one specific thing they don't love, they haven't read carefully enough.
+
+```
+AskUserQuestion({
+  question: "Name one specific thing you don't love about this change.",
+  header: "One criticism",
+  options: [
+    { label: "The final diff", description: "Focus to view. Type one criticism in Other.", preview: "<the final diff>" },
+    { label: "Skip — trivial change", description: "Use only for typo / rename / single-line config." }
+  ],
+  multiSelect: false
+})
+```
+
+If the user answers "nothing" or equivalent, push back once: *"if you can't name one, you haven't read carefully — try again."* If the user holds, proceed and log the override to followups.
 
 ## Output structure for plans
 
@@ -126,4 +188,5 @@ Briefly re-read this skill if drift is detected.
 - Stacking multiple diagrams to explain one concept.
 - Comparison tables with paragraph-length cells.
 - Continuing past a chunk without "next".
+- Marking a chunk "done" without running the verification gates (pre-mortem / reverse-explanation / one criticism).
 - Caveman-mode internal monologue leaking into responses ("User wants X. Memory says Y. Won't do Z.").
