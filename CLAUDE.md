@@ -6,10 +6,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A collection of Claude Code skills (AI operational guides). Each skill teaches Claude Code how to perform specific workflows correctly.
 
-## Version Control
-
-This is a jj (Jujutsu) colocated repo. **Never use raw git commands.** Use `jj` for all version control operations. See the `jj-lazyjj` skill in this repo for the full reference.
-
 ## Skill Structure
 
 Each skill lives in `skills/<skill-name>/` with this layout:
