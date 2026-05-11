@@ -1,6 +1,6 @@
 ---
 name: commit-msg
-description: "Generate conventional commit messages by reading the actual diff. Use this skill whenever you need to write a commit message, describe a change, or the user says 'commit', 'describe this', 'write a commit message', 'jj describe', or 'what changed'. Also trigger when running jj commit, jj describe, or git commit and no message was provided or the message needs improvement. Trigger proactively: if you just finished making changes and are about to commit/describe, use this skill to generate the message from the diff rather than writing a generic one. Works with both jj (jj describe) and git (git commit) repos."
+description: "Generate conventional commit messages by reading the actual diff. Use this skill whenever you need to write a commit message, describe a change, or the user says 'commit', 'describe this', 'write a commit message', 'git commit', or 'what changed'. Also trigger when running git commit and no message was provided or the message needs improvement. Trigger proactively: if you just finished making changes and are about to commit, use this skill to generate the message from the diff rather than writing a generic one."
 ---
 
 # Commit Message Skill
@@ -14,12 +14,6 @@ Every time you need to write a commit message, follow these steps in order:
 ### Step 1: Read the diff
 
 ```bash
-# jj repo
-jj diff
-# or for a specific change:
-jj diff -r <change-id>
-
-# git repo (fallback)
 git diff --staged
 # or if nothing staged:
 git diff
@@ -28,10 +22,6 @@ git diff
 If the diff is large, also run a summary view:
 
 ```bash
-# jj
-jj diff --summary      # or: jj diffs (lazyjj alias)
-
-# git
 git diff --staged --stat
 ```
 
@@ -108,22 +98,7 @@ Format:
 ### Step 5: Apply the message
 
 ```bash
-# jj repo (preferred)
-jj describe -m "<message>"
-
-# git repo (fallback)
 git commit -m "<message>"
-```
-
-For multi-line messages in jj:
-
-```bash
-jj describe -m "type(scope): subject
-
-body paragraph here
-
-- bullet point
-- another point"
 ```
 
 ## Examples
