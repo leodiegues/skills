@@ -13,6 +13,8 @@ A collection of operational skills for AI coding agents (Claude Code, etc.). Eac
 | [python-docstrings](skills/python-docstrings/SKILL.md) | Python docstring generation using Google convention — add, fix, or convert docstrings for modules, classes, and functions |
 | [pair-programming](skills/pair-programming/SKILL.md) | Approval-gated pair programming workflow — plan-first, AskUserQuestion clarifications, visuals required |
 | [handoff](skills/handoff/SKILL.md) | Compact the current conversation into a handoff document so a fresh agent or session can pick up the work |
+| [pickup](skills/pickup/SKILL.md) | Resume work from a handoff document — the inverse of `handoff`, restores context from `~/.claude/handoffs/` |
+| [codebase-explorer](skills/codebase-explorer/SKILL.md) | Map-and-quiz codebase exploration for unfamiliar repos — 4-phase workflow (recon → map → quiz → deepen) producing an HTML artifact with Mermaid diagrams and active-recall quiz; explicitly NOT for refactoring or feature work |
 
 > The `handoff` skill is heavily inspired by (and nearly identical to) [mattpocock/skills `handoff`](https://github.com/mattpocock/skills/blob/main/skills/productivity/handoff/SKILL.md).
 
