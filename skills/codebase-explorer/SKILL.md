@@ -42,11 +42,16 @@ Gather signals in parallel. Do NOT read implementation source yet.
 4. Detect entry points by name: `main.*`, `index.*`, `app.*`, `server.*`, `cmd/`, `src/main/`, FastAPI/Flask app modules, Django `manage.py` + `urls.py`, Next.js `pages/` or `app/`, Rails `routes.rb`.
 5. Classify the **archetype**: frontend SPA, backend API, data pipeline, serverless, CLI, library, IaC, monorepo. See `references/diagram-recipes.md` for what to draw per archetype.
 
-Emit a briefing of MAX 200 words. Template:
+Emit a briefing of MAX 200 words, then **call `AskUserQuestion`** for Checkpoint A. Briefing template:
 
-> This looks like a **[archetype]** in [language/framework]. Entry point: `[file]`. Datastores: [list]. External integrations: [list]. Build/run: `[command from Makefile or README]`. Docs status: [ADRs / ARCHITECTURE / none]. Anything you already know about this codebase I should not repeat? Any feature or area you want me to focus on?
+> This looks like a **[archetype]** in [language/framework]. Entry point: `[file]`. Datastores: [list]. External integrations: [list]. Build/run: `[command from Makefile or README]`. Docs status: [ADRs / ARCHITECTURE / none].
 
-Then **STOP**. Wait for the user (Checkpoint A).
+Then call `AskUserQuestion` with **structural** scoping options (do NOT use freeform "anything you want me to focus on?"):
+
+1. **Scope question** — 2–4 options derived from your recon. For a monorepo: which service/app to focus on. For a small repo: which subsystem or vertical slice. If the user named a feature/PR/area in their prompt, that's always option 1.
+2. **Slug question** (optional second question in the same `AskUserQuestion` call) — propose a ≤6-word kebab-case slug derived from the likely scope; user accepts or redirects via "Other".
+
+Any free-form follow-ups ("anything you already know I should skip?") happen *after* the `AskUserQuestion` is answered — they're contextual, not structural.
 
 ### Phase 2 — Map (3 diagrams, incrementally rendered to one HTML artifact)
 
@@ -65,7 +70,7 @@ For each diagram:
 
 At the end of Phase 2 (after L3), the same write pass fills the remaining placeholders: "Risks and smells", "What I did NOT explore", and "Glossary". The artifact is self-contained, Mermaid via CDN, dark mode, accessible (≥16px font, high contrast, `<figcaption>` text equivalents for every diagram, `prefers-reduced-motion` respected).
 
-End of Phase 2 is **Checkpoint B**: ask "Does this map match your mental model? Anything missing or wrong? Which part do you want to quiz on first?"
+End of Phase 2 is **Checkpoint B**: call `AskUserQuestion` to pick the next step. Options derived from L2 nodes ("Quiz me on the auth context", "Quiz me on the billing context", ...) plus structural options like "Skip the quiz, finalize the artifact" or "Deepen one node directly (Phase 4)". The user's `Other` escape covers "map looks wrong, adjust X" redirects.
 
 ### Phase 3 — Quiz (5–8 questions, predict-then-verify)
 
@@ -73,18 +78,32 @@ Use templates from `references/quiz-bank.md`, instantiated with concrete nouns f
 
 Protocol per question:
 
-1. Ask ONE question. Reference a node or edge from the map.
-2. **WAIT** for the user's prediction. Do not give the answer.
+1. Ask ONE question in **plain chat text**. Reference a node or edge from the map.
+2. **WAIT** for the user's free-text prediction. Do not give the answer.
 3. Verify: if correct, confirm and add one detail. If wrong, reframe as a finding about the code: "Reasonable guess — the actual flow is X because [code-level reason]. The naming is misleading because [historical reason]." Never shame.
-4. Ask: "0–10, how confident are you you could explain this tomorrow?" Note anything ≤6 mentally for possible Phase 4.
+4. Ask: "0–10, how confident are you you could explain this tomorrow?" — also free-text. Note anything ≤6 mentally for possible Phase 4.
 
-Then ask what to quiz next, or whether to move on (Checkpoint C).
+**Do NOT use `AskUserQuestion` for quiz prompts or confidence ratings.** Multiple choice replaces *recall* with *recognition* — the user picks from a menu instead of generating the mental trace from scratch. That breaks the active-recall pedagogy this phase exists for. Free-text answers also surface the misconceptions you couldn't have anticipated as options (the wrong-answer findings that go in the Quiz log come from substance you can't pre-enumerate). `AskUserQuestion` is for *structural* choices (Checkpoints A, B, C, Phase 4 node-pick), not for *learning* prompts.
+
+**Checkpoint C** (end of Phase 3 round): call `AskUserQuestion` with three options:
+- "Continue quizzing (another round)"
+- "Deepen one node (Phase 4)"
+- "Finalize the artifact and stop"
 
 ### Phase 4 — Deepen (optional, user-driven)
 
-Only on explicit request. Pick ONE node from the map. Zoom one level in with a new diagram (often `classDiagram` or `stateDiagram-v2`). Ask 2–3 follow-up questions. **Update the HTML artifact in place** at `~/.codebase-explorer/<repo>/<slug>.html` — append a new section under the existing L3, don't rewrite the file.
+Only on explicit request. **Use `AskUserQuestion` to pick which node to zoom into** — options are the L2 (and any L3) diagram nodes, plus the "Other" escape for off-map targets. After the user picks, zoom one level in with a new diagram (often `classDiagram` or `stateDiagram-v2`). Ask 2–3 follow-up questions using the Phase 3 quiz protocol — free-text, NOT `AskUserQuestion`. **Update the HTML artifact in place** at `~/.codebase-explorer/<repo>/<slug>.html` — append a new section under the existing L3, don't rewrite the file.
 
 **STOP at 3 zoom levels total.** Never zoom to literal code-level UML — at that point, read the code instead.
+
+## When to use `AskUserQuestion`
+
+Single rule, two halves:
+
+- **Use `AskUserQuestion` for structural decisions** — Checkpoints A, B, C, Phase 4 node-pick, slug derivation. The answer space is bounded (2–4 options); the value lives in the *choice*. Bounded options also let the user redirect via `Other` cleanly.
+- **Use free-text chat for learning prompts** — Phase 3 quiz questions and their 0–10 confidence ratings. The answer space is open; the value lives in the user *generating* the answer. Multiple choice would test recognition instead of recall and would foreclose the wrong-answer space where the most useful findings live (the "I never would have written that as an option" misconceptions).
+
+Rule of thumb: if you can list the valid answers in advance, use `AskUserQuestion`. If the valid answer is "explain in your own words" or "trace this through the diagram", use free-text.
 
 ## Style rules for user-facing prose
 
