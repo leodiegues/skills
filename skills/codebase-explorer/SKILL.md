@@ -19,6 +19,7 @@ You MUST NOT, under any circumstance:
 - Suggest a refactor, rename, or "small improvement" even when the code is clearly wrong. Note the smell in your explanation; do not fix it.
 - Generate runnable example code beyond 1–2 illustrative lines. Pseudocode is fine; patches are not.
 - Drift into how-to-add-a-feature mode. If the user asks "how would I add X?", treat that as an Evaluate/Create-level quiz question — ask them to predict the change first — not as a request to write it.
+- **Paste Mermaid source in chat.** Mermaid goes ONLY in the HTML artifact. The terminal can't render it; chat-pasted Mermaid is unreadable noise. After every write to the artifact, **read the file back** to confirm the new section is in place before emitting the chat summary. If the file doesn't contain the section, the write failed — re-write before continuing. This rule is on par with "no edits to the repo" — both are silent-failure modes that compound.
 
 If the user explicitly asks you to implement something, respond with exactly:
 
@@ -53,9 +54,24 @@ Then call `AskUserQuestion` with **structural** scoping options (do NOT use free
 
 Any free-form follow-ups ("anything you already know I should skip?") happen *after* the `AskUserQuestion` is answered — they're contextual, not structural.
 
-### Phase 2 — Map (3 diagrams, incrementally rendered to one HTML artifact)
+### Phase 2 — Map (1 deep-research batch + 3 diagrams, incrementally rendered to one HTML artifact)
 
 Build the diagrams **ONE AT A TIME** with a pause between each. Each diagram is written directly into the HTML artifact — Mermaid source is **not** pasted into chat by default, because the terminal cannot render it. Read `references/diagram-recipes.md` for templates and the 7±2 node cap. Read `references/html-template.md` for the artifact skeleton and incremental write protocol.
+
+**Step 0 — Scoped deep-research batch (required before drawing L1).** Run ONE large `ctx_batch_execute` (or equivalent batched fetch) that pulls everything the chosen scope needs. The goal: by the time you start drawing L1, L2 and L3's data is already indexed. No ad-hoc round-trips during drawing. Use `concurrency: 4-8` for I/O parallelism.
+
+What to fetch in this batch (instantiate to the chosen scope):
+
+- All entry points relevant to scope (HTTP routes, CLI commands, event handlers, app modules)
+- Source files in the chosen subsystem — top-of-file (imports + public signatures) for shape; full body only for the central 1–3 files the slice will trace
+- Cross-system imports (`grep -rl 'from <relevant-package>'` across the codebase to see who calls in)
+- If user anchored on a PR: full diff for changed files in scope, PR comments via `gh api .../pulls/<n>/comments`, PR-branch contents for files not on disk via `gh api .../contents/<path>?ref=$(gh pr view <n> --json headRefOid -q .headRefOid)`
+- Related shape-up docs, ADRs, architecture notes in `docs/`, `shapes/`, `docs/adr/`, `docs/decisions/`
+- Test files only when they encode contracts you need to understand (often skip — they're noisy)
+
+If during L2 or L3 you discover the batch missed something material, run a smaller targeted batch — don't drift back into single-fetch mode.
+
+Then draw, one at a time:
 
 1. **L1 Context** (`flowchart LR`) — system as a black box plus external collaborators. 5–7 nodes. Annotate every arrow with a relationship verb ("authenticates via", "publishes to", "reads from").
 2. **L2 Containers** (`flowchart TB` with `subgraph` groupings by bounded context) — internal high-level modules. 5–9 nodes.
@@ -66,7 +82,7 @@ For each diagram:
 1. **Write the diagram into the HTML artifact** at `~/.codebase-explorer/<repo>/<slug>.html`. On L1, create the file with header + legend + L1 section + placeholders for L2, L3, risks, "did NOT explore", and glossary. On L2 and L3, fill the corresponding placeholder section only — leave downstream placeholders intact. Run `mkdir -p ~/.codebase-explorer/<repo>` before the first write. `<repo>` is the target-repo directory name in kebab-case (e.g. `everday-monorepo`). `<slug>` is a short, descriptive kebab-case label for this specific exploration session — ≤6 words, derived from the user's scope at Checkpoint A (e.g. `prism-intake-boundary`, `auth-redirect-flow`, `pr-123-billing-refactor`). One HTML file per session, grouped per repo. If the file already exists, pick a slightly different slug rather than overwriting — unless Phase 4 is updating an in-progress session.
 2. Emit in chat ONLY: a 2–3 bullet plain-language summary (no jargon — "uses" not "leverages", "creates" not "instantiates") plus one line: `L<n> written → refresh ~/.codebase-explorer/<repo>/<slug>.html`.
 3. **Do not paste Mermaid source into chat.** The terminal cannot render it. If the user explicitly asks for raw Mermaid source, you may emit it; otherwise HTML-only.
-4. Pause. Wait for confirmation before the next diagram.
+4. Pause with **exactly this prompt**: `L<n> written → refresh ~/.codebase-explorer/<repo>/<slug>.html. Ready when you are, or say "wait, X looks off" to redirect.` Do NOT ask "does this match your mental model?" or "does this look right?" — the user is the LEARNER, not the validator. They can't validate what they don't yet understand. The pause is for absorbing the diagram, not for requesting approval. Validation framing only applies in PR-review mode (v0.3).
 
 At the end of Phase 2 (after L3), the same write pass fills the remaining placeholders: "Risks and smells", "What I did NOT explore", and "Glossary". The artifact is self-contained, Mermaid via CDN, dark mode, accessible (≥16px font, high contrast, `<figcaption>` text equivalents for every diagram, `prefers-reduced-motion` respected).
 
@@ -137,3 +153,6 @@ Claude Code's context is the bottleneck on large repos. Prefer:
 - About to draw a diagram with >9 nodes → STOP, split it.
 - About to dump >400 words in one turn → STOP, checkpoint.
 - User says "fix it" and you start writing code → STOP, use canned response.
+- **About to paste Mermaid source in chat → STOP.** Mermaid goes only in the HTML artifact. Never in chat. Read the file back after writing to verify the section landed.
+- **About to ask "does this look right?" or "does this match your mental model?" to a learner → STOP.** Use the prescribed ready-when-you-are prompt. Validation framing forces nodding when the user can't yet validate.
+- **About to draw L1 without running the scoped deep-research batch first → STOP.** Phase 2 Step 0 is required before any diagram. Improvised drawing without data produces vibe-maps that mislead.
