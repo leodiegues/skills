@@ -186,7 +186,16 @@ Each pass only edits its own section (plus the Status field). Downstream placeho
     </figure>
     <details>
       <summary>Deeper notes</summary>
-      <p>{{L1_DEEPER_NOTES}}</p>
+      <p>{{L1_DEEPER_NOTES_PROSE}}</p>
+      <!--
+        Snippet pattern (see SKILL.md § Snippet conventions).
+        Use when prose would drift into inference — cite code instead.
+        Cap: 3–10 lines per snippet, ≤20 snippets per artifact total.
+      -->
+      <p><strong>{{WHAT_THIS_IS}}</strong> — {{≤15_WORD_CONTEXT}}.</p>
+      <p><code>{{file_path}}:{{line_range}}</code></p>
+      <pre><code>{{3-10 lines of code, indentation preserved}}</code></pre>
+      <p>{{one-line significance — why this snippet matters here}}</p>
     </details>
   </section>
 

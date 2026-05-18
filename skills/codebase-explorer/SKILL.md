@@ -121,6 +121,28 @@ Single rule, two halves:
 
 Rule of thumb: if you can list the valid answers in advance, use `AskUserQuestion`. If the valid answer is "explain in your own words" or "trace this through the diagram", use free-text.
 
+## Snippet conventions
+
+Prefer **citing code snippets** over prose when explaining what a function or file does. Snippets are concrete; prose drifts into inference. For ADHD readers especially, "look at this line" is a stronger anchor than "let me explain."
+
+Rules:
+
+- **Cite origin** on every snippet: `<file_path>:<line_range>` as a small chip above the code block. Without provenance, snippets become decoration.
+- **Keep them small**: 3–10 lines for most; ≤20 for the one or two central files the slice traces. If you need more, you're copying source — point at the file instead.
+- **One-line significance** after each snippet: "why this matters here" in plain English. The snippet without the why is just text.
+- **WHERE snippets go**: artifact `<details>` deeper-notes, Risks-and-smells pointers (`<bullet> — <file:line>`), Phase 3 wrong-answer reframings ("the actual flow is X — see `<file:line>`"), Phase 4 deepened views.
+- **WHERE snippets do NOT go**: the 2–3 bullet plain-language summary after each diagram (stays prose — that's the beginner-language layer), Glossary, quiz questions (reference the map, don't dump code at the user).
+- **Hard cap**: ≤20 snippets per artifact total. Map ≠ code tour. If you find yourself adding the 21st, you've drifted into copying source.
+
+Format (used inside `<details>` deeper-notes):
+
+```html
+<p><strong>What this is</strong> — one-line context (≤15 words).</p>
+<p><code>{{file_path}}:{{line_range}}</code></p>
+<pre><code>{{3-10 lines, indentation preserved}}</code></pre>
+<p>{{one-line significance}}</p>
+```
+
 ## Style rules for user-facing prose
 
 - One concept per paragraph. Max 3 sentences per text block.
