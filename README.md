@@ -16,8 +16,11 @@ A collection of operational skills for AI coding agents (Claude Code, etc.). Eac
 | [pickup](skills/pickup/SKILL.md) | Resume work from a handoff document — the inverse of `handoff`, restores context from the Obsidian vault (with a legacy `~/.claude/handoffs/` fallback) |
 | [codebase-explorer](skills/codebase-explorer/SKILL.md) | Map-and-quiz codebase exploration for unfamiliar repos — 4-phase workflow (recon → map → quiz → deepen) producing an HTML artifact with Mermaid diagrams and active-recall quiz; explicitly NOT for refactoring or feature work |
 | [daily-update](skills/daily-update/SKILL.md) | Slack-ready daily standup generator — auto-drafts today's work from git/PRs, asks what's missing, formats today's update / tomorrow's plans / open PRs with paste-safe `•` bullets |
+| [obsidian-vault](skills/obsidian-vault/SKILL.md) | File, clip, and find notes in the personal Obsidian vault from any session — routes by zone, derives `<org>/<repo>` project paths, matches live frontmatter, guards sacred zones; defers handoff/pickup/daily-update |
 
 > The `handoff` skill is heavily inspired by (and nearly identical to) [mattpocock/skills `handoff`](https://github.com/mattpocock/skills/blob/main/skills/productivity/handoff/SKILL.md).
+>
+> The `obsidian-vault` skill is adapted (with substantial enhancements) from [mattpocock/skills `obsidian-vault`](https://github.com/mattpocock/skills/blob/main/skills/personal/obsidian-vault/SKILL.md) — re-targeted to this vault's lifecycle-folder contract, audience routing, derived paths, and live-frontmatter matching.
 
 ## How Skills Work
 
