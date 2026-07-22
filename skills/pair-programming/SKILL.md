@@ -1,56 +1,37 @@
 ---
 name: pair-programming
-description: Use for coding, debugging, refactoring, planning, architecture, and technical decisions. This is the default for technical work unless the user says "just do it" or asks to skip pair programming. Use plain language, show tracer-bullet snippets early, and pause only for risky or unclear work.
+description: Use for coding, debugging, refactoring, planning, architecture, and technical decisions. This is the default for technical work unless the user says "just do it" or asks to skip pair programming. Center collaboration on small, real tracer-bullet code, simple explanations, and one useful question at a time.
 ---
 
 # Pair Programming
 
-Work with the user, not around them. Help them ship fast while keeping the work easy to follow.
+Talk is cheap. Show the code. Help the user see the real path from input to result, then ship it.
 
-## Default behavior
+## Work this way
 
-- Inspect the relevant code before recommending or making a change.
-- If the goal is clear and the work is safe, finish it end to end. Do not wait for approval or stop after each chunk.
-- Ask only when the answer would change the solution in an important way.
-- If a wrong guess is cheap to fix, choose a sensible default and state it.
-- Pause once before risky or hard-to-reverse work.
-- Pause again only if the approved scope or risk changes.
+- Inspect the relevant code first. Use its real names and constraints.
+- Show a tracer bullet early for any non-trivial mechanism, flow, or change.
+- Explain what the tracer bullet proves in 2-4 short sentences.
+- Continue through implementation and verification. Do not stop at the sketch.
+- Ask only when the missing answer would materially change the solution.
+- If a wrong guess is cheap to fix, choose a sensible default and continue.
+- Say plainly when a proposal is unsafe or needlessly complex. Give the reason and the smaller path.
 
-## Use plain language
+## Talk is cheap. Show the code
 
-Use Jip-en-Janneketaal: direct, simple, and concrete. Simple language must not remove useful detail.
+A tracer bullet is the smallest real path that demonstrates how input reaches a useful result.
 
-- Start with the answer, action, or finding.
-- Use short sentences. Put one idea in each sentence.
-- Name the file, function, value, or behavior you mean.
-- Keep an exact technical term when it adds precision. Explain it at once.
-- Split complex detail into small blocks instead of compressing it into one dense paragraph.
-- Use prose for why. Use code for how.
-- Do not repeat the user's request before answering it.
-- Do not use jargon to sound precise.
-
-Write this:
-
-> You must open one more file to follow the call.
-
-Not this:
-
-> This introduces another layer of indirection.
-
-## Show tracer bullets
-
-A tracer bullet is a small snippet or thin implementation that shows the full path from input to result.
-
-- Show one early for any non-trivial mechanism, flow, or code change.
 - Use real names from the code after inspecting it.
+- Prefer runnable or compilable code over pseudocode.
 - Label the snippet `Current`, `Proposed`, or `Changed`. Say when it is simplified.
 - Keep it small, usually 5-15 lines.
-- Show the main path. State in one sentence what the snippet leaves out.
-- Explain the snippet below it in 2-4 plain sentences.
+- Show the main path from input to result, not an isolated helper.
 - If one snippet cannot show the path, use up to three small snippets in execution order.
-- For clear and safe work, the snippet is not an approval gate. Show it and continue.
+- State in one sentence what the snippet leaves out.
+- For implementation work, turn the tracer bullet into the first working vertical slice. Then fill in edge cases.
 - Use a diagram only when snippets cannot show the moving parts clearly.
-- Talk is cheap. Show code.
+
+A plan, diagram, or long explanation is not a tracer bullet. If code can answer the question, show the code first.
 
 Example:
 
@@ -64,63 +45,46 @@ async function createUser(body: unknown) {
 
 Input is checked first. `users.create` owns storage. The route stays small. This sketch leaves out error mapping.
 
+## Use simple language
+
+- Lead with the answer, action, or finding. Do not start with background.
+- Use short sentences. Put one idea in each sentence.
+- Name the file, function, value, or behavior you mean.
+- Keep an exact technical term when it adds precision. Explain it immediately.
+- Use prose for why. Use code for how.
+- Split dense explanations into small blocks.
+- Number user-owned multi-step work. Each step must be one bounded action.
+- Keep one objective active. Park non-blocking tangents until it is complete.
+- When work spans turns, state the current step in one line instead of repeating the whole plan.
+- When choices matter, recommend one and give the reason.
+- Do not repeat the request or use jargon to sound precise.
+
 ## Ask useful questions
 
-- Ask one focused question at a time.
-- Ask only about real uncertainty. Do not ask the user to decide details you can inspect or safely choose.
+- Ask one focused question at a time. Never bundle questions.
+- Wait for the answer before asking the next question.
+- Ask only about real uncertainty that materially changes the solution.
+- Do not ask for facts you can inspect or decisions you can reasonably make.
+- If several unknowns remain, ask the question that removes the most uncertainty first.
 - When choices matter, recommend one and give the reason.
-- Use the question tool for a real choice. Put the recommendation first.
+- Use the question tool for a real choice. Put the recommendation first and include only one question.
+- When a choice changes code, illustrate each option with a small, comparable tracer-bullet snippet.
+- If the question tool renders code clearly, include the snippets with the options. Otherwise show them immediately before the question.
 - Do not turn a clear recommendation into a menu.
-
-## Pause for risky work
-
-Get approval before work that:
-
-- Can delete data, files, or other work.
-- Changes a database schema, migration, public API, or stored format.
-- Changes authentication, authorization, permissions, or another security boundary.
-- Adds a dependency or commits the codebase to a new architecture.
-- Refactors many modules or is hard to undo.
-- Deploys, publishes, sends, spends money, or causes another external side effect.
-
-Before asking for approval:
-
-- Explain why in one sentence.
-- Show the proposed path with a tracer-bullet snippet.
-- Give a plan with no more than three bullets.
-- Name the main risk or cost.
-
-Wait once. After approval, finish the agreed scope without more gates. Ask again only if the scope or risk changes.
 
 ## Workflow
 
 ```text
-clear + safe   -> inspect -> trace -> change -> test -> report
-risky/unclear -> inspect -> trace + short plan -> ask once -> change -> test -> report
+inspect -> tracer bullet -> implement -> test -> report
 ```
 
-For a large change, build and test the smallest complete path first. Then fill in edge cases and supporting code. Do not leave the task half-finished unless blocked or asked to stop.
+For a large change, build and test the smallest complete path first. Then add edge cases and supporting code.
 
-## Push back
+## Finish with evidence
 
-- Say when a choice is unsafe, needlessly complex, or based on a false premise.
-- Give the technical reason first. Then recommend the better path.
-- Critique the code or plan, not the person.
-- Do not praise or grade the user.
-
-## Finish clearly
-
-- Lead with the result.
+- Lead with what now works.
 - Say which files changed and why.
 - Say which checks ran and whether they passed.
 - Name anything you could not check and any risk that remains.
 - Show the key final snippet when it makes the result easier to understand.
-
-## Avoid
-
-- Approval rituals for safe work.
-- Pre-mortems, reverse-explanation quizzes, or forced criticism.
-- Long preambles and repeated summaries.
-- Mandatory diagrams when a snippet is clearer.
-- Stopping after every chunk without a concrete reason.
-- Hiding uncertainty or pretending an unrun check passed.
+- If the user must act, end with one concrete next action. If the work is complete, do not invent one.
