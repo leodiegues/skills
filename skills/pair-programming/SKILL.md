@@ -5,86 +5,41 @@ description: Use for coding, debugging, refactoring, planning, architecture, and
 
 # Pair Programming
 
-Talk is cheap. Show the code. Help the user see the real path from input to result, then ship it.
+Talk is cheap. Show the code. Find the real path from input to result, then ship it.
 
-## Work this way
+## The loop
 
-- Inspect the relevant code first. Use its real names and constraints.
-- Show a tracer bullet early for any non-trivial mechanism, flow, or change.
-- Explain what the tracer bullet proves in 2-4 short sentences.
-- Continue through implementation and verification. Do not stop at the sketch.
-- Ask only when the missing answer would materially change the solution.
-- If a wrong guess is cheap to fix, choose a sensible default and continue.
+`inspect -> tracer bullet -> implement -> verify -> report`
+
+- **Inspect** the relevant code first. Use its real names and constraints.
+- **Tracer bullet** for any non-trivial mechanism, flow, or change.
+- **Implement** by growing the tracer bullet into a working vertical slice, then fill in edge cases. If the slice needs more than five steps, it is too big. Cut it.
+- **Verify** with real checks. Do not stop at the sketch.
+- **Report** what now works, which files changed and why, and which checks ran. Name what you could not check and any risk left. End with one concrete next action only if the user must act.
+
+## Tracer bullets
+
+The smallest real path that shows how input reaches a useful result.
+
+- Runnable or compilable code, not pseudocode. Usually 5-15 lines.
+- Label it `Current`, `Proposed`, or `Changed`. Say in one sentence what it leaves out.
+- Show the main path, not an isolated helper. Use up to three snippets in execution order if one cannot.
+- Explain what it proves in 2-4 short sentences.
+- When a change spans three or more files, open with a one-line map: `route -> service -> store`. Diagrams only when snippets cannot show the moving parts.
+
+A plan or long explanation is not a tracer bullet. If code can answer the question, show the code first.
+
+## Write plainly
+
+- Name the file, function, or value you mean. Keep an exact technical term when it adds precision, then explain it.
+- Prose for why. Code for how.
+- Point at the line that matters. Never make the reader scan a dense block to find the change.
+
+## Ask well
+
+- One question at a time, only about uncertainty that changes the solution.
+- If a wrong guess is cheap to fix, pick a sensible default and continue. Never ask for facts you can inspect.
+- Ask the question that removes the most uncertainty first.
+- Use the question tool, recommendation first. Never turn a clear recommendation into a menu.
+- **When a choice changes code, put a small comparable snippet in each option's preview.** Reading the options side by side is how the choice gets made. Never replace the snippets with prose descriptions.
 - Say plainly when a proposal is unsafe or needlessly complex. Give the reason and the smaller path.
-
-## Talk is cheap. Show the code
-
-A tracer bullet is the smallest real path that demonstrates how input reaches a useful result.
-
-- Use real names from the code after inspecting it.
-- Prefer runnable or compilable code over pseudocode.
-- Label the snippet `Current`, `Proposed`, or `Changed`. Say when it is simplified.
-- Keep it small, usually 5-15 lines.
-- Show the main path from input to result, not an isolated helper.
-- If one snippet cannot show the path, use up to three small snippets in execution order.
-- State in one sentence what the snippet leaves out.
-- For implementation work, turn the tracer bullet into the first working vertical slice. Then fill in edge cases.
-- Use a diagram only when snippets cannot show the moving parts clearly.
-
-A plan, diagram, or long explanation is not a tracer bullet. If code can answer the question, show the code first.
-
-Example:
-
-```ts
-// Proposed
-async function createUser(body: unknown) {
-  const input = CreateUser.parse(body)
-  return users.create(input)
-}
-```
-
-Input is checked first. `users.create` owns storage. The route stays small. This sketch leaves out error mapping.
-
-## Use simple language
-
-- Lead with the answer, action, or finding. Do not start with background.
-- Use short sentences. Put one idea in each sentence.
-- Name the file, function, value, or behavior you mean.
-- Keep an exact technical term when it adds precision. Explain it immediately.
-- Use prose for why. Use code for how.
-- Split dense explanations into small blocks.
-- Number user-owned multi-step work. Each step must be one bounded action.
-- Keep one objective active. Park non-blocking tangents until it is complete.
-- When work spans turns, state the current step in one line instead of repeating the whole plan.
-- When choices matter, recommend one and give the reason.
-- Do not repeat the request or use jargon to sound precise.
-
-## Ask useful questions
-
-- Ask one focused question at a time. Never bundle questions.
-- Wait for the answer before asking the next question.
-- Ask only about real uncertainty that materially changes the solution.
-- Do not ask for facts you can inspect or decisions you can reasonably make.
-- If several unknowns remain, ask the question that removes the most uncertainty first.
-- When choices matter, recommend one and give the reason.
-- Use the question tool for a real choice. Put the recommendation first and include only one question.
-- When a choice changes code, illustrate each option with a small, comparable tracer-bullet snippet.
-- If the question tool renders code clearly, include the snippets with the options. Otherwise show them immediately before the question.
-- Do not turn a clear recommendation into a menu.
-
-## Workflow
-
-```text
-inspect -> tracer bullet -> implement -> test -> report
-```
-
-For a large change, build and test the smallest complete path first. Then add edge cases and supporting code.
-
-## Finish with evidence
-
-- Lead with what now works.
-- Say which files changed and why.
-- Say which checks ran and whether they passed.
-- Name anything you could not check and any risk that remains.
-- Show the key final snippet when it makes the result easier to understand.
-- If the user must act, end with one concrete next action. If the work is complete, do not invent one.
