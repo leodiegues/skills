@@ -31,9 +31,11 @@ A plan or long explanation is not a tracer bullet. If code can answer the questi
 
 ## Write plainly
 
+- Lead with the answer, action, or finding.
 - Name the file, function, or value you mean. Keep an exact technical term when it adds precision, then explain it.
 - Prose for why. Code for how.
 - Point at the line that matters. Never make the reader scan a dense block to find the change.
+- Keep one objective active. Park tangents instead of chasing them.
 
 ## Ask well
 
