@@ -12,6 +12,7 @@ A collection of operational skills for AI coding agents (Claude Code, etc.). Eac
 | [python-testing](skills/python-testing/SKILL.md) | Python testing with pytest — fixtures, mocking, async tests, coverage, and modern testing ecosystem |
 | [python-docstrings](skills/python-docstrings/SKILL.md) | Python docstring generation using Google convention — add, fix, or convert docstrings for modules, classes, and functions |
 | [pair-programming](skills/pair-programming/SKILL.md) | Plain-language pair programming with early tracer-bullet snippets and approval only for risky work |
+| [delegate](skills/delegate/SKILL.md) | Model orchestration for Fable 5 sessions — plan and judge yourself, hand exploration, implementation, and deeper code review to Opus 5 / Sonnet 5 subagents |
 | [handoff](skills/handoff/SKILL.md) | Compact the current conversation into a handoff document so a fresh agent or session can pick up the work |
 | [pickup](skills/pickup/SKILL.md) | Resume work from a handoff document — the inverse of `handoff`, restores context from the Obsidian vault (with a legacy `~/.claude/handoffs/` fallback) |
 | [codebase-explorer](skills/codebase-explorer/SKILL.md) | Map-and-quiz codebase exploration for unfamiliar repos — 4-phase workflow (recon → map → quiz → deepen) producing an HTML artifact with Mermaid diagrams and active-recall quiz; explicitly NOT for refactoring or feature work |
