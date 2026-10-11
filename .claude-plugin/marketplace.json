@@ -4,11 +4,13 @@
   "owner": {
     "name": "Leonardo Diegues"
   },
+  "allowCrossMarketplaceDependenciesOn": ["worktrunk"],
   "plugins": [
     {
       "name": "leodiegues-skills",
       "source": "./",
-      "description": "Operational skills for AI coding agents"
+      "description": "Operational skills for AI coding agents",
+      "dependencies": [{ "name": "worktrunk", "marketplace": "worktrunk" }]
     }
   ]
 }
