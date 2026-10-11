@@ -8,7 +8,7 @@ The repo root is one plugin, `leodiegues-skills`, published in two formats:
 - `.claude-plugin/plugin.json` — Claude Code manifest; keep it identical to the root `plugin.json`
 - `.claude-plugin/marketplace.json` — Claude Code marketplace `leodiegues`, listing this repo (`"source": "./"`)
 
-After changing manifests or skills, run `claude plugin validate .` and bump `version` in both `plugin.json` files. The validator warns that this root `CLAUDE.md` is not shipped as plugin context — expected, it is repo guidance only.
+After changing manifests or skills, run `claude plugin validate .`. Don't edit `version` by hand — `/release` (`.claude/skills/release/`, a repo-maintenance skill that is not part of the plugin) sets it in both manifests, tags `vX.Y.Z`, and publishes from `main`. The validator warns that this root `CLAUDE.md` is not shipped as plugin context — expected, it is repo guidance only.
 
 ## Writing Skills
 

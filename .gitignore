@@ -402,3 +402,4 @@ $RECYCLE.BIN/
 
 # Skill scripts are source, not a virtualenv Scripts/ directory
 !skills/*/scripts/
+!.claude/skills/*/scripts/
