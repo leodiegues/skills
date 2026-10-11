@@ -1,6 +1,6 @@
 ---
 name: obsidian-vault
-description: Use when the user wants to save, file, clip, capture, find, recall, or organize a note in their personal Obsidian vault from any session — usually a code repo, outside the vault. Triggers like "save this to my vault", "clip this article/link", "log an idea", "add to my inbox", "find/recall my note about X", "where does this doc go?". Keywords - Obsidian, vault, note, clipping, source, idea, inbox, frontmatter, MOC, wikilink. Do NOT use for pausing/resuming a session (use the handoff / pickup skills) or daily standups (use daily-update).
+description: Use when the user wants to save, file, clip, capture, find, recall, or organize a note in their personal Obsidian vault from any session — usually a code repo, outside the vault. Triggers like "save this to my vault", "clip this article/link", "log an idea", "add to my inbox", "find/recall my note about X", "where does this doc go?". Keywords - Obsidian, vault, note, clipping, source, idea, inbox, frontmatter, MOC, wikilink. Do NOT use for pausing/resuming a session (use the handoff / pickup skills).
 ---
 
 # Obsidian Vault
@@ -27,7 +27,6 @@ Never hardcode the path. If `$VAULT` doesn't exist, ask — don't guess.
 |---|---|
 | to pause / hand off a session | `handoff` skill (it owns handoff files) |
 | to resume from a handoff | `pickup` skill |
-| a daily standup / EOD update | `daily-update` skill |
 | a spec / ADR that **drives the build** | the **repo** under `docs/specs/` — NOT the vault |
 
 This skill handles the rest: clippings, ideas, inbox capture, drafts, and finding notes.
@@ -60,18 +59,18 @@ where to pick up — → defer to the `handoff` skill. A finished, human-facing 
 
 ## Deriving the project path
 
-`<org>/<repo>` is **derived from the target repo's git remote** — never invented.
+`<org>/<repo>` is **derived from the target repo's git remote** — never invented. Run the
+bundled script (path relative to this skill's directory):
 
 ```bash
-# Run INSIDE the target repo. CWD TRAP: deriving from an unrelated cwd gives the wrong slug.
-slug=$(git -C <repo-path> remote get-url origin | sed -E 's#\.git$##' \
-  | awk -F'[/:]' '{print $(NF-1)"/"$NF}')
+# CWD TRAP: pass the TARGET repo's path; deriving from an unrelated cwd gives the wrong slug.
+scripts/project-slug.sh <repo-path>
 # git@github.com:ever-day/everday-monorepo.git  →  ever-day/everday-monorepo
 ```
 
 - Stop at `<org>/<repo>` (identity nesting). Never mirror `src/packages/...` into the vault.
 - Monorepo sub-package → a `package:` frontmatter field, **not** a folder.
-- No remote → fall back to `30-projects/_local/<repo>/`.
+- No remote (the script prints nothing) → fall back to `30-projects/_local/<repo>/`.
 
 **Governance:** personal projects opt in freely. Employer/client repos (e.g. Folha) stay out
 of the vault unless cleared — check the target repo's `CLAUDE.md` for the opt-in block first.

@@ -1,29 +1,18 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## Plugin Packaging
 
-## What This Is
+The repo root is one plugin, `leodiegues-skills`, published in two formats:
 
-A collection of Claude Code skills (AI operational guides). Each skill teaches Claude Code how to perform specific workflows correctly.
+- `plugin.json` — [Agent Plugins](https://agent-plugins.org/) manifest
+- `.claude-plugin/plugin.json` — Claude Code manifest; keep it identical to the root `plugin.json`
+- `.claude-plugin/marketplace.json` — Claude Code marketplace `leodiegues`, listing this repo (`"source": "./"`)
 
-## Skill Structure
-
-Each skill lives in `skills/<skill-name>/` with this layout:
-
-```
-skills/<skill-name>/
-  SKILL.md              # Main skill file with YAML frontmatter (name, description) and operational content
-  references/           # Optional supporting reference docs
-    *.md
-```
-
-The YAML frontmatter in `SKILL.md` has three fields:
-- `name`: skill identifier (used for invocation)
-- `description`: trigger description — tells Claude Code WHEN to activate the skill and what it covers
-- The body contains the operational instructions Claude Code follows when the skill is active
+After changing manifests or skills, run `claude plugin validate .` and bump `version` in both `plugin.json` files. The validator warns that this root `CLAUDE.md` is not shipped as plugin context — expected, it is repo guidance only.
 
 ## Writing Skills
 
+- Scripts live in `skills/<name>/scripts/` (chmod +x) and are self-contained per skill — never reference another skill's directory. `SKILL.md` calls them by path relative to the skill directory (`scripts/foo.sh`).
 - The `description` field is critical — it controls when Claude Code activates the skill. Be explicit about triggers and anti-triggers.
 - Reference files in `references/` hold detailed lookup tables, command references, or workflow guides that the main skill tells Claude to read on demand (keeps the main skill focused).
 - Skills should be operational (tell Claude what to DO), not educational (don't explain concepts for the user to read).

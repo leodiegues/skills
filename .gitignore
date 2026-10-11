@@ -399,3 +399,6 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.toptal.com/developers/gitignore/api/windows,linux,macos,node,python,venv,dotenv
+
+# Skill scripts are source, not a virtualenv Scripts/ directory
+!skills/*/scripts/

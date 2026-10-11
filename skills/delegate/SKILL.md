@@ -1,6 +1,7 @@
 ---
 name: delegate
 description: Use when the session model is Fable 5 and the work involves exploring a codebase or implementing a change — Fable plans and judges, Opus 5 and Sonnet 5 subagents explore, type, and run deeper reviews. Triggers on "delegate this", "orchestrate", "who should do this". Do NOT use on Opus, Sonnet, or Haiku sessions — those do the work directly.
+disable-model-invocation: true
 ---
 
 # Delegate

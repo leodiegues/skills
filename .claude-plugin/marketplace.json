@@ -1,0 +1,14 @@
+{
+  "name": "leodiegues",
+  "description": "Leonardo Diegues' agent skills",
+  "owner": {
+    "name": "Leonardo Diegues"
+  },
+  "plugins": [
+    {
+      "name": "leodiegues-skills",
+      "source": "./",
+      "description": "Operational skills for AI coding agents"
+    }
+  ]
+}
