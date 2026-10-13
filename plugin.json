@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "leodiegues-skills",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Operational skills for AI coding agents: session handoff/pickup, Obsidian vault filing, model delegation, and kicking off plans in worktrees.",
   "author": {
     "name": "Leonardo Diegues",
