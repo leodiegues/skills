@@ -37,6 +37,10 @@ This repository is a plugin. In Claude Code, add it as a marketplace and install
 
 The plugin depends on the [worktrunk](https://github.com/max-sixty/worktrunk) plugin, so add its marketplace first: `/plugin marketplace add max-sixty/worktrunk`. The `kickoff` skill also needs the `wt`, `herdr`, and `jq` binaries on `PATH` and a session started inside herdr; it checks for them before doing anything.
 
+### Mermaid rendering mod
+
+The plugin also ships a Claude Code mod (`hooks/`) that draws ` ```mermaid ` blocks in Claude's replies as diagrams: an inline image in kitty, Ghostty and iTerm2 3.5+ (fullscreen), SVG in the desktop app, VS Code and mobile. It renders with [mermaid-rs-renderer](https://github.com/1jehuang/mermaid-rs-renderer) (`cargo install mermaid-rs-renderer`, provides `mmdr`); without `mmdr`, or on a diagram it can't parse, the reply shows the code block as usual. In other terminals that support kitty graphics but that Claude Code doesn't recognise (e.g. Rex), add `"CLAUDE_CODE_FORCE_TERMINAL_IMAGES": "1"` to `env` in `~/.claude/settings.json`.
+
 It also follows the [Agent Plugins](https://agent-plugins.org/) format (root `plugin.json` + `skills/`), so any compatible client can load the repository directory as a plugin.
 
 Skills are detected and activated automatically based on their `description` trigger conditions.

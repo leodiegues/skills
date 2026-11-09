@@ -403,3 +403,7 @@ $RECYCLE.BIN/
 # Skill scripts are source, not a virtualenv Scripts/ directory
 !skills/*/scripts/
 !.claude/skills/*/scripts/
+
+# Types the Claude Code engine writes beside a loaded mod
+.claude-plugin/types/
+/tsconfig.json
