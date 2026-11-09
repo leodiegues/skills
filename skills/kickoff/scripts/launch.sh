@@ -4,10 +4,13 @@
 #   t3    (inside T3 Code)   — a new T3 Code thread in a new worktree.
 #   herdr (inside a herdr pane) — a worktrunk worktree opened as a child herdr
 #                                 workspace, with Claude started there.
+#   rex   (inside a Rex terminal) — a worktrunk worktree opened in a new tab of
+#                                   this Rex session, with Claude started there.
 #   launch.sh <branch> [--base REF] [--label TEXT] [--reuse] < kickoff
 # Prints one JSON line: provider, branch, then per provider
 #   t3:    thread_id, link, path
 #   herdr: path, workspace_id, pane_id, agent
+#   rex:   path, session_id, window_id, block_id
 set -euo pipefail
 
 die() { echo "kickoff: $*" >&2; exit 1; }
@@ -26,7 +29,8 @@ done
 [ "$reuse" = 0 ] || [ -z "$base" ] || die "--base only applies to a new branch; drop it or drop --reuse"
 
 # Preflight: everything below creates state, so fail before any of it exists.
-# T3 first: HERDR_ENV can leak into T3 Code when its server was started from a herdr pane.
+# Innermost host first: HERDR_ENV can leak into T3 Code when its server was started from a
+# herdr pane, and REX_SESSION leaks into herdr panes started from a Rex terminal.
 if [ -n "${T3CODE_THREAD_ID:-}" ]; then
   provider=t3
   t3="${T3CODE_CLI_PATH:-t3}"
@@ -42,8 +46,13 @@ elif [ "${HERDR_ENV:-}" = 1 ] && [ -n "${HERDR_WORKSPACE_ID:-}" ]; then
   provider=herdr
   command -v herdr >/dev/null || die "herdr not found on PATH: https://github.com/herdrdev/herdr"
   command -v wt >/dev/null    || die "wt (worktrunk) not found on PATH: https://worktrunk.dev"
+elif [ -n "${REX_SESSION:-}" ]; then
+  provider=rex
+  command -v rex >/dev/null    || die "rex not found on PATH"
+  command -v wt >/dev/null     || die "wt (worktrunk) not found on PATH: https://worktrunk.dev"
+  command -v claude >/dev/null || die "claude not found on PATH"
 else
-  die "not running inside T3 Code (T3CODE_THREAD_ID) or a herdr pane (HERDR_ENV=1)"
+  die "not running inside T3 Code (T3CODE_THREAD_ID), a herdr pane (HERDR_ENV=1) or a Rex terminal (REX_SESSION)"
 fi
 command -v jq >/dev/null || die "jq not found on PATH"
 [ -t 0 ] && die "no kickoff prompt: pipe it on stdin"
@@ -66,13 +75,16 @@ if [ "$provider" = t3 ]; then
   exit 0
 fi
 
-# herdr agent names: [a-z][a-z0-9_-]{0,31}
-agent=$(printf '%s' "$branch" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9_-' '-' \
-        | sed -E 's/^[^a-z]+//' | cut -c1-32 | sed -E 's/-+$//')
-[ -n "$agent" ] || agent=kickoff
-
-path="" ws="" pane=""
-trap 'rc=$?; [ $rc -eq 0 ] || echo "kickoff: failed (exit $rc). Left in place: worktree=${path:-none} workspace=${ws:-none} pane=${pane:-none} agent=$agent" >&2' EXIT
+path="" ws="" pane="" agent=""
+if [ "$provider" = rex ]; then
+  trap 'rc=$?; [ $rc -eq 0 ] || echo "kickoff: failed (exit $rc). Left in place: worktree=${path:-none} rex_window=${ws:-none}" >&2' EXIT
+else
+  # herdr agent names: [a-z][a-z0-9_-]{0,31}
+  agent=$(printf '%s' "$branch" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9_-' '-' \
+          | sed -E 's/^[^a-z]+//' | cut -c1-32 | sed -E 's/-+$//')
+  [ -n "$agent" ] || agent=kickoff
+  trap 'rc=$?; [ $rc -eq 0 ] || echo "kickoff: failed (exit $rc). Left in place: worktree=${path:-none} workspace=${ws:-none} pane=${pane:-none} agent=$agent" >&2' EXIT
+fi
 
 wt_args=(switch "$branch" --no-cd --format=json)
 [ "$reuse" = 1 ] || wt_args+=(--create)
@@ -80,6 +92,18 @@ wt_args=(switch "$branch" --no-cd --format=json)
 out=$(wt "${wt_args[@]}")
 path=$(jq -r '.path // empty' <<<"$out")
 [ -n "$path" ] || die "wt returned no worktree path: $out"
+
+if [ "$provider" = rex ]; then
+  # The kickoff goes in as Claude's initial prompt: argv reaches it verbatim, and
+  # Claude submits it once any startup dialog (folder trust) is answered.
+  out=$(rex window new -s "$REX_SESSION" "${label:-$branch}" -c "$path" --json -- claude "$kickoff")
+  ws=$(jq -r '.window_id // empty' <<<"$out")
+  pane=$(jq -r '.block_ids[0] // empty' <<<"$out")
+  [ -n "$ws" ] && [ -n "$pane" ] || die "rex returned no window/block id: $out"
+  jq -cn --arg branch "$branch" --arg path "$path" --arg s "$REX_SESSION" --arg w "$ws" --arg b "$pane" \
+    '{provider: "rex", branch: $branch, path: $path, session_id: $s, window_id: $w, block_id: $b}'
+  exit 0
+fi
 
 out=$(herdr worktree open --workspace "$HERDR_WORKSPACE_ID" --path "$path" --label "${label:-$branch}" --no-focus)
 ws=$(jq -r '.result.workspace.workspace_id // empty' <<<"$out")

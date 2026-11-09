@@ -1,12 +1,12 @@
 ---
 name: kickoff
-description: Send finished planning to execution — create a worktree for a work item (Linear issue or project, GitLab/GitHub issue, plan file, or the plan agreed in this session) and start a new agent session there with a kickoff prompt: a new T3 Code thread when this session runs in T3 Code, or a child herdr workspace when it runs in a herdr pane. Use when the user invokes /kickoff after planning.
+description: Send finished planning to execution — create a worktree for a work item (Linear issue or project, GitLab/GitHub issue, plan file, or the plan agreed in this session) and start a new agent session there with a kickoff prompt: a new T3 Code thread when this session runs in T3 Code, a child herdr workspace when it runs in a herdr pane, or a new Rex tab when it runs in a Rex terminal. Use when the user invokes /kickoff after planning.
 argument-hint: "[issue, project, or plan reference]"
-compatibility: Requires `jq` and a session running either in T3 Code (its `t3` CLI) or inside a herdr pane (https://github.com/herdrdev/herdr) with the `wt` CLI (https://worktrunk.dev)
+compatibility: Requires `jq` and a session running in T3 Code (its `t3` CLI), inside a herdr pane (https://github.com/herdrdev/herdr), or in a Rex terminal (its `rex` CLI); herdr and Rex also need the `wt` CLI (https://worktrunk.dev)
 disable-model-invocation: true
 ---
 
-Hand the work planned in this session to a fresh agent session that runs in its own worktree: a new T3 Code thread, or a child herdr workspace grouped under this one — whichever host this session runs in. This session stays the planning session: it does not move, and it does not start implementing.
+Hand the work planned in this session to a fresh agent session that runs in its own worktree: a new T3 Code thread, a child herdr workspace grouped under this one, or a new tab in this Rex session — whichever host this session runs in. This session stays the planning session: it does not move, and it does not start implementing.
 
 ## 1. Resolve the work item
 
@@ -65,19 +65,21 @@ EOF
 
 Options: `--base <ref>` for a non-default base, `--reuse` to enter a branch that already exists. Label a chain with the project or epic, not its first issue.
 
-It picks the provider from the environment (T3 Code first, then herdr) and checks its requirements before creating anything. On success it prints one JSON line with `provider` and `branch`, plus:
+It picks the provider from the environment (T3 Code first, then herdr, then Rex) and checks its requirements before creating anything. On success it prints one JSON line with `provider` and `branch`, plus:
 
 - **t3** — starts a thread in this thread's project on a new worktree (`t3 thread start --worktree <base> --branch <branch>`) with the kickoff as its first message. Adds `thread_id`, `link`, `path`. The base defaults to the default branch.
 - **herdr** — creates the worktree (`wt`), opens it as a workspace grouped under the current one, starts Claude in that workspace's root pane, submits the kickoff, and moves focus to the new workspace. Adds `path`, `workspace_id`, `pane_id`, `agent`.
+- **rex** — creates the worktree (`wt`) and opens a new tab in this Rex session there, running `claude` with the kickoff as its initial prompt; the tab takes focus. Adds `path`, `session_id`, `window_id`, `block_id`.
 
 On failure it prints what was left in place. Read that before retrying — a second blind run stacks a second worktree or workspace on the first:
 
 - **Branch already exists** → ask whether to reuse it, then rerun with `--reuse`. In T3 Code the script refuses `--reuse`; instead start the thread with the `t3_thread_launch` tool (`workspaceStrategy: {type: "existing_worktree", worktreePath}` if the branch has a worktree) and the kickoff as `message`.
 - **`agent_not_ready`** (herdr) → Claude started but is waiting on a dialog (usually folder trust) in the new workspace. Tell the user to answer it there; once the agent is idle, submit the kickoff with `herdr agent prompt <agent> "<kickoff>"` and `herdr workspace focus <workspace_id>`.
+- **rex: Claude waits on a dialog** (usually folder trust) in the new tab → nothing to redo; the kickoff is submitted once the user answers it there.
 - **A missing requirement** → relay the script's message and stop.
 
 ## 5. Report
 
-Give the branch and worktree path, plus the thread `link` (t3) or the workspace id and agent name (herdr). Don't wait on the new session or read its output unless asked; it is the user's to drive now.
+Give the branch and worktree path, plus the thread `link` (t3), the workspace id and agent name (herdr), or the tab's `window_id` (rex). Don't wait on the new session or read its output unless asked; it is the user's to drive now.
 
-Everything created persists after this session. Remove it only when asked: in herdr, `herdr worktree remove --workspace <workspace_id>` closes the workspace and deletes the checkout; in T3 Code, archive the thread and `git worktree remove <path>`. The branch stays.
+Everything created persists after this session. Remove it only when asked: in herdr, `herdr worktree remove --workspace <workspace_id>` closes the workspace and deletes the checkout; in Rex, `rex window close -s <session_id> <window_id>` then `wt remove --no-delete-branch <branch>`; in T3 Code, archive the thread and `git worktree remove <path>`. The branch stays.
