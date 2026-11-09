@@ -68,14 +68,16 @@ Options: `--base <ref>` for a non-default base, `--reuse` to enter a branch that
 It picks the provider from the environment (T3 Code first, then herdr, then Rex) and checks its requirements before creating anything. On success it prints one JSON line with `provider` and `branch`, plus:
 
 - **t3** — starts a thread in this thread's project on a new worktree (`t3 thread start --worktree <base> --branch <branch>`) with the kickoff as its first message. Adds `thread_id`, `link`, `path`. The base defaults to the default branch.
-- **herdr** — creates the worktree (`wt`), opens it as a workspace grouped under the current one, starts Claude in that workspace's root pane, submits the kickoff, and moves focus to the new workspace. Adds `path`, `workspace_id`, `pane_id`, `agent`.
-- **rex** — creates the worktree (`wt`) and opens a new tab in this Rex session there, running `claude` with the kickoff as its initial prompt; the tab takes focus. Adds `path`, `session_id`, `window_id`, `block_id`.
+- **herdr** — creates the worktree (`wt`), opens it as a workspace grouped under the current one, starts this session's agent in that workspace's root pane, submits the kickoff, and moves focus to the new workspace. Adds `path`, `workspace_id`, `pane_id`, `agent`, `cli`.
+- **rex** — creates the worktree (`wt`) and opens a new tab in this Rex session there, running this session's agent with the kickoff as its initial prompt; the tab takes focus. Adds `path`, `session_id`, `window_id`, `block_id`, `cli`.
+
+The new session runs the same agent as this one: T3 Code reuses this thread's provider and model; herdr and Rex detect the calling CLI (`codex`, `opencode`, or `claude`) from its environment, and start it with permission prompts off (`--dangerously-skip-permissions`, `--yolo`, `--auto`). Write the kickoff in that agent's own syntax for skills and commands.
 
 On failure it prints what was left in place. Read that before retrying — a second blind run stacks a second worktree or workspace on the first:
 
 - **Branch already exists** → ask whether to reuse it, then rerun with `--reuse`. In T3 Code the script refuses `--reuse`; instead start the thread with the `t3_thread_launch` tool (`workspaceStrategy: {type: "existing_worktree", worktreePath}` if the branch has a worktree) and the kickoff as `message`.
-- **`agent_not_ready`** (herdr) → Claude started but is waiting on a dialog (usually folder trust) in the new workspace. Tell the user to answer it there; once the agent is idle, submit the kickoff with `herdr agent prompt <agent> "<kickoff>"` and `herdr workspace focus <workspace_id>`.
-- **rex: Claude waits on a dialog** (usually folder trust) in the new tab → nothing to redo; the kickoff is submitted once the user answers it there.
+- **`agent_not_ready`** (herdr) → the agent started but is waiting on a dialog (usually folder trust) in the new workspace. Tell the user to answer it there; once the agent is idle, submit the kickoff with `herdr agent prompt <agent> "<kickoff>"` and `herdr workspace focus <workspace_id>`.
+- **rex: the agent waits on a dialog** (usually folder trust) in the new tab → nothing to redo; the kickoff is submitted once the user answers it there.
 - **A missing requirement** → relay the script's message and stop.
 
 ## 5. Report

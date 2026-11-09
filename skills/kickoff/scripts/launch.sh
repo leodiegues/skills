@@ -3,14 +3,15 @@
 # read from stdin. The provider is picked from the calling session:
 #   t3    (inside T3 Code)   — a new T3 Code thread in a new worktree.
 #   herdr (inside a herdr pane) — a worktrunk worktree opened as a child herdr
-#                                 workspace, with Claude started there.
+#                                 workspace, with this session's agent started there.
 #   rex   (inside a Rex terminal) — a worktrunk worktree opened in a new tab of
-#                                   this Rex session, with Claude started there.
+#                                   this Rex session, with this session's agent started there.
+# The agent is the CLI running this script: codex, opencode or claude.
 #   launch.sh <branch> [--base REF] [--label TEXT] [--reuse] < kickoff
 # Prints one JSON line: provider, branch, then per provider
 #   t3:    thread_id, link, path
-#   herdr: path, workspace_id, pane_id, agent
-#   rex:   path, session_id, window_id, block_id
+#   herdr: path, workspace_id, pane_id, agent, cli
+#   rex:   path, session_id, window_id, block_id, cli
 set -euo pipefail
 
 die() { echo "kickoff: $*" >&2; exit 1; }
@@ -50,9 +51,18 @@ elif [ -n "${REX_SESSION:-}" ]; then
   provider=rex
   command -v rex >/dev/null    || die "rex not found on PATH"
   command -v wt >/dev/null     || die "wt (worktrunk) not found on PATH: https://worktrunk.dev"
-  command -v claude >/dev/null || die "claude not found on PATH"
 else
   die "not running inside T3 Code (T3CODE_THREAD_ID), a herdr pane (HERDR_ENV=1) or a Rex terminal (REX_SESSION)"
+fi
+if [ "$provider" != t3 ]; then
+  # Same agent CLI as this session (T3 Code carries its provider over itself).
+  # yolo: the new session runs unattended in its own worktree, so skip permission prompts.
+  if   [ -n "${CODEX_THREAD_ID:-}" ]; then cli=codex    yolo=--yolo
+  elif [ "${OPENCODE:-}" = 1 ];      then cli=opencode yolo=--auto
+  elif [ "${CLAUDECODE:-}" = 1 ];    then cli=claude   yolo=--dangerously-skip-permissions
+  else die "unknown calling agent: expected Codex (CODEX_THREAD_ID), OpenCode (OPENCODE=1) or Claude Code (CLAUDECODE=1)"
+  fi
+  command -v "$cli" >/dev/null || die "$cli not found on PATH"
 fi
 command -v jq >/dev/null || die "jq not found on PATH"
 [ -t 0 ] && die "no kickoff prompt: pipe it on stdin"
@@ -94,14 +104,18 @@ path=$(jq -r '.path // empty' <<<"$out")
 [ -n "$path" ] || die "wt returned no worktree path: $out"
 
 if [ "$provider" = rex ]; then
-  # The kickoff goes in as Claude's initial prompt: argv reaches it verbatim, and
-  # Claude submits it once any startup dialog (folder trust) is answered.
-  out=$(rex window new -s "$REX_SESSION" "${label:-$branch}" -c "$path" --json -- claude "$kickoff")
+  # The kickoff goes in as the agent's initial prompt: argv reaches it verbatim, and
+  # the agent submits it once any startup dialog (folder trust) is answered.
+  case "$cli" in
+    opencode) cmd=(opencode "$yolo" --prompt "$kickoff") ;;
+    *)        cmd=("$cli" "$yolo" "$kickoff") ;;
+  esac
+  out=$(rex window new -s "$REX_SESSION" "${label:-$branch}" -c "$path" --json -- "${cmd[@]}")
   ws=$(jq -r '.window_id // empty' <<<"$out")
   pane=$(jq -r '.block_ids[0] // empty' <<<"$out")
   [ -n "$ws" ] && [ -n "$pane" ] || die "rex returned no window/block id: $out"
-  jq -cn --arg branch "$branch" --arg path "$path" --arg s "$REX_SESSION" --arg w "$ws" --arg b "$pane" \
-    '{provider: "rex", branch: $branch, path: $path, session_id: $s, window_id: $w, block_id: $b}'
+  jq -cn --arg branch "$branch" --arg path "$path" --arg s "$REX_SESSION" --arg w "$ws" --arg b "$pane" --arg cli "$cli" \
+    '{provider: "rex", branch: $branch, path: $path, session_id: $s, window_id: $w, block_id: $b, cli: $cli}'
   exit 0
 fi
 
@@ -110,10 +124,10 @@ ws=$(jq -r '.result.workspace.workspace_id // empty' <<<"$out")
 pane=$(jq -r '.result.root_pane.pane_id // empty' <<<"$out")
 [ -n "$ws" ] && [ -n "$pane" ] || die "herdr returned no workspace/pane id: $out"
 
-herdr agent start "$agent" --kind claude --pane "$pane" --timeout 120000 >/dev/null
+herdr agent start "$agent" --kind "$cli" --pane "$pane" --timeout 120000 -- "$yolo" >/dev/null
 herdr agent prompt "$agent" "$kickoff" >/dev/null
 # Focus last: a failure above leaves the user in the planning workspace.
 herdr workspace focus "$ws" >/dev/null
 
-jq -cn --arg branch "$branch" --arg path "$path" --arg ws "$ws" --arg pane "$pane" --arg agent "$agent" \
-  '{provider: "herdr", branch: $branch, path: $path, workspace_id: $ws, pane_id: $pane, agent: $agent}'
+jq -cn --arg branch "$branch" --arg path "$path" --arg ws "$ws" --arg pane "$pane" --arg agent "$agent" --arg cli "$cli" \
+  '{provider: "herdr", branch: $branch, path: $path, workspace_id: $ws, pane_id: $pane, agent: $agent, cli: $cli}'
