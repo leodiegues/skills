@@ -84,4 +84,4 @@ On failure it prints what was left in place. Read that before retrying — a sec
 
 Give the branch and worktree path, plus the thread `link` (t3), the workspace id and agent name (herdr), or the tab's `window_id` (rex). Don't wait on the new session or read its output unless asked; it is the user's to drive now.
 
-Everything created persists after this session. Remove it only when asked: in herdr, `herdr worktree remove --workspace <workspace_id>` closes the workspace and deletes the checkout; in Rex, `rex window close -s <session_id> <window_id>` then `wt remove --no-delete-branch <branch>`; in T3 Code, archive the thread and `git worktree remove <path>`. The branch stays.
+Everything created persists after this session. `/teardown`, run from the new session once its work is done, removes it. To remove it from here, only when asked: in herdr, `herdr worktree remove --workspace <workspace_id>` closes the workspace and deletes the checkout; in Rex, `rex window close -s <session_id> <window_id>` then `wt remove --no-delete-branch <branch>`; in T3 Code, archive the thread and `git worktree remove <path>`. The branch stays.

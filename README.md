@@ -8,6 +8,7 @@ A collection of operational skills for AI coding agents (Claude Code, etc.). Eac
 |-------|-------------|
 | [delegate](skills/delegate/SKILL.md) | Model orchestration for Fable 5 sessions — plan and judge yourself, hand exploration, implementation, and deeper code review to Opus 5 / Sonnet 5 subagents |
 | [kickoff](skills/kickoff/SKILL.md) | Send a finished plan to execution — creates a [worktrunk](https://worktrunk.dev) worktree for the work item (Linear, GitLab, GitHub, or a plan file), opens it as a child [herdr](https://github.com/herdrdev/herdr) workspace, and starts a Claude session there with a kickoff prompt |
+| [teardown](skills/teardown/SKILL.md) | Tear down finished work — the inverse of `kickoff`: removes the session's worktree (or switches the main checkout off its feature branch), deletes the branch if merged, and closes the session's [herdr](https://github.com/herdrdev/herdr) workspace or Rex tab. Refuses on the default branch |
 | [handoff](skills/handoff/SKILL.md) | Compact the current conversation into a handoff document so a fresh agent or session can pick up the work |
 | [pickup](skills/pickup/SKILL.md) | Resume work from a handoff document — the inverse of `handoff`, restores context from the Obsidian vault (with a legacy `~/.claude/handoffs/` fallback) |
 | [obsidian-vault](skills/obsidian-vault/SKILL.md) | File, clip, and find notes in the personal Obsidian vault from any session — routes by zone, derives `<org>/<repo>` project paths, matches live frontmatter, guards sacred zones; defers handoff/pickup |
