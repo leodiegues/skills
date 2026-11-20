@@ -8,6 +8,9 @@
 # The host is picked from the calling session and closed last, only after the git part worked:
 #   herdr — the workspace when it is this worktree's, else the calling pane.
 #   rex   — the tab when the calling block is alone in it, else the calling block.
+#   hc    — (Herdr app, herdr-core) the space when it is this worktree's and holds no other
+#           terminal, else the calling pane;
+#           with no pane in a Herdr window on this machine, the terminal's program.
 #   t3    — nothing: its CLI cannot archive a thread.
 #   none  — nothing.
 # A branch in the main checkout keeps its pane (the checkout is still there) unless --close-pane.
@@ -57,7 +60,8 @@ dirty=$(git status --porcelain)
 local_only=$(git rev-list --count HEAD --not --remotes "$default")
 
 # What to close. Innermost host first, as in kickoff: HERDR_ENV can leak into T3 Code,
-# and REX_* leaks into herdr panes started from a Rex terminal.
+# and REX_* leaks into herdr panes started from a Rex terminal. HC_TERMINAL_ID last: it
+# leaks into every one of them when they are started from a Herdr app terminal.
 host=none close=()
 if [ -n "${T3CODE_THREAD_ID:-}" ]; then
   host=t3
@@ -80,6 +84,21 @@ elif [ -n "${REX_BLOCK:-}" ] && [ -n "${REX_SESSION:-}" ]; then
     close=(rex window close -s "$REX_SESSION" "$win")
   else
     close=(rex block close -s "$REX_SESSION" "$REX_BLOCK")
+  fi
+elif [ -n "${HC_TERMINAL_ID:-}" ]; then
+  host=hc
+  command -v hc >/dev/null || die "hc (herdr-core) not found on PATH"
+  # Without a pane in a Herdr window on this machine, end the terminal's program.
+  close=(hc kill "$HC_TERMINAL_ID")
+  # HC_TERMINAL_ID is not a pane id: the window knows the pane and the space it sits in.
+  at=$(herdr-app ls 2>/dev/null | jq -c --arg t "$HC_TERMINAL_ID" 'first(.spaces[] | . as $s
+       | .tabs[].terminals[] | select(.terminal == $t)
+       | {id: $s.id, folder: $s.folder, alone: ([$s.tabs[].terminals[]] | length == 1), pane})' 2>/dev/null || true)
+  if [ -n "$at" ]; then
+    close=(herdr-app do pane.close "$(jq -c '{pane}' <<<"$at")")
+    # space.close ends every terminal in the space, so only when this one is the last.
+    [ "$linked" = false ] || [ "$(jq -r 'select(.alone) | .folder' <<<"$at")" != "$top" ] \
+      || close=(herdr-app do space.close "$(jq -c '{id, confirmed: true}' <<<"$at")")
   fi
 fi
 [ "$linked" = true ] || [ "$close_main" = 1 ] || close=()

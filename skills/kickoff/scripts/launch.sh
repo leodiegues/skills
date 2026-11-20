@@ -6,32 +6,39 @@
 #                                 workspace, with this session's agent started there.
 #   rex   (inside a Rex terminal) — a worktrunk worktree opened in a new tab of
 #                                   this Rex session, with this session's agent started there.
+#   hc    (inside a Herdr app or herdr-core terminal) — a worktrunk worktree opened as a new
+#         space in the Herdr window, with this session's agent started there; with no window
+#         on this machine, as an hc terminal with no parent. With --parent, as a child
+#         terminal of this one instead: listed under it, typing its notes into it.
 # The agent is the CLI running this script: codex, opencode or claude.
-#   launch.sh <branch> [--base REF] [--label TEXT] [--reuse] < kickoff
+#   launch.sh <branch> [--base REF] [--label TEXT] [--reuse] [--parent] < kickoff
 # Prints one JSON line: provider, branch, then per provider
 #   t3:    thread_id, link, path
 #   herdr: path, workspace_id, pane_id, agent, cli
 #   rex:   path, session_id, window_id, block_id, cli
+#   hc:    path, space_id, tab_id, terminal, parent, cli
 set -euo pipefail
 
 die() { echo "kickoff: $*" >&2; exit 1; }
 
-branch="" base="" label="" reuse=0
+branch="" base="" label="" reuse=0 parent=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --base)  base="${2:-}"; shift 2 ;;
     --label) label="${2:-}"; shift 2 ;;
     --reuse) reuse=1; shift ;;
+    --parent) parent=1; shift ;;
     -*)      die "unknown option: $1" ;;
     *)       branch="$1"; shift ;;
   esac
 done
-[ -n "$branch" ] || die "usage: launch.sh <branch> [--base REF] [--label TEXT] [--reuse] < kickoff"
+[ -n "$branch" ] || die "usage: launch.sh <branch> [--base REF] [--label TEXT] [--reuse] [--parent] < kickoff"
 [ "$reuse" = 0 ] || [ -z "$base" ] || die "--base only applies to a new branch; drop it or drop --reuse"
 
 # Preflight: everything below creates state, so fail before any of it exists.
 # Innermost host first: HERDR_ENV can leak into T3 Code when its server was started from a
 # herdr pane, and REX_SESSION leaks into herdr panes started from a Rex terminal.
+# HC_TERMINAL_ID last: it leaks into every one of them when started from a Herdr app terminal.
 if [ -n "${T3CODE_THREAD_ID:-}" ]; then
   provider=t3
   t3="${T3CODE_CLI_PATH:-t3}"
@@ -51,9 +58,14 @@ elif [ -n "${REX_SESSION:-}" ]; then
   provider=rex
   command -v rex >/dev/null    || die "rex not found on PATH"
   command -v wt >/dev/null     || die "wt (worktrunk) not found on PATH: https://worktrunk.dev"
+elif [ -n "${HC_TERMINAL_ID:-}" ]; then
+  provider=hc
+  command -v hc >/dev/null     || die "hc (herdr-core) not found on PATH"
+  command -v wt >/dev/null     || die "wt (worktrunk) not found on PATH: https://worktrunk.dev"
 else
-  die "not running inside T3 Code (T3CODE_THREAD_ID), a herdr pane (HERDR_ENV=1) or a Rex terminal (REX_SESSION)"
+  die "not running inside T3 Code (T3CODE_THREAD_ID), a herdr pane (HERDR_ENV=1), a Rex terminal (REX_SESSION) or a Herdr app terminal (HC_TERMINAL_ID)"
 fi
+[ "$parent" = 0 ] || [ "$provider" = hc ] || die "--parent needs a Herdr app or herdr-core terminal (HC_TERMINAL_ID); this host is $provider"
 if [ "$provider" != t3 ]; then
   # Same agent CLI as this session (T3 Code carries its provider over itself).
   # yolo: the new session runs unattended in its own worktree, so skip permission prompts.
@@ -85,14 +97,14 @@ if [ "$provider" = t3 ]; then
   exit 0
 fi
 
-path="" ws="" pane="" agent=""
-if [ "$provider" = rex ]; then
-  trap 'rc=$?; [ $rc -eq 0 ] || echo "kickoff: failed (exit $rc). Left in place: worktree=${path:-none} rex_window=${ws:-none}" >&2' EXIT
+path="" ws="" pane=""
+# herdr agent names: [a-z][a-z0-9_-]{0,31}; hc terminal names fit the same rule.
+agent=$(printf '%s' "$branch" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9_-' '-' \
+        | sed -E 's/^[^a-z]+//' | cut -c1-32 | sed -E 's/-+$//')
+[ -n "$agent" ] || agent=kickoff
+if [ "$provider" != herdr ]; then
+  trap 'rc=$?; [ $rc -eq 0 ] || echo "kickoff: failed (exit $rc). Left in place: worktree=${path:-none} $provider=${ws:-none}" >&2' EXIT
 else
-  # herdr agent names: [a-z][a-z0-9_-]{0,31}
-  agent=$(printf '%s' "$branch" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9_-' '-' \
-          | sed -E 's/^[^a-z]+//' | cut -c1-32 | sed -E 's/-+$//')
-  [ -n "$agent" ] || agent=kickoff
   trap 'rc=$?; [ $rc -eq 0 ] || echo "kickoff: failed (exit $rc). Left in place: worktree=${path:-none} workspace=${ws:-none} pane=${pane:-none} agent=$agent" >&2' EXIT
 fi
 
@@ -103,13 +115,55 @@ out=$(wt "${wt_args[@]}")
 path=$(jq -r '.path // empty' <<<"$out")
 [ -n "$path" ] || die "wt returned no worktree path: $out"
 
-if [ "$provider" = rex ]; then
+if [ "$provider" != herdr ]; then
   # The kickoff goes in as the agent's initial prompt: argv reaches it verbatim, and
   # the agent submits it once any startup dialog (folder trust) is answered.
-  case "$cli" in
-    opencode) cmd=(opencode "$yolo" --prompt "$kickoff") ;;
-    *)        cmd=("$cli" "$yolo" "$kickoff") ;;
+  case "$provider$cli" in
+    *opencode) cmd=(opencode "$yolo" --prompt "$kickoff") ;;
+    # Under hc, Codex's shared daemon would run its commands outside the terminal.
+    hccodex)   cmd=(codex "$yolo" --no-daemon "$kickoff") ;;
+    *)         cmd=("$cli" "$yolo" "$kickoff") ;;
   esac
+fi
+if [ "$provider" = hc ]; then
+  space="" par=""
+  if [ "$parent" = 0 ] && command -v herdr-app >/dev/null && herdr-app ls >/dev/null 2>&1; then
+    # A Herdr window is open here: a new space on the worktree, shown at once. It gets no
+    # name, so the app and its mods call it after its checkout; the label names its tab.
+    # The app starts argv through the user's login shell itself.
+    out=$(herdr-app do space.new "$(jq -cn --arg tab "$label" --arg folder "$path" \
+          '{folder: $folder, tab: (if $tab == "" then null else $tab end), argv: $ARGS.positional}' \
+          --args -- "${cmd[@]}")") \
+      || die "herdr-app space.new failed: $out"
+  else
+    if [ "$parent" = 1 ]; then
+      # A child of this terminal: the window lists it under this one, hc types its notes
+      # (blocked, exited) into this session, and its name is its address for hc send.
+      # It outlives this session, so closing the planner does not end work in flight.
+      par=$HC_TERMINAL_ID
+      hc_args=(--name "$agent" --outlive-parent)
+    else
+      # No window here (another machine, app closed): a terminal with no parent, in this
+      # terminal's space when it has one, where a window elsewhere shows it as a new tab.
+      space=$(hc get "$HC_TERMINAL_ID" --json | jq -r '.labels["herdr.space"] // empty')
+      hc_args=(--no-parent ${space:+--label "herdr.space=$space"})
+    fi
+    # hc starts programs with the core's environment, which lacks the user's PATH and
+    # breaks the agent's hooks, so go through a login shell, the way the app starts a pane:
+    # when the agent exits the terminal stays, on a shell in the worktree.
+    # ponytail: '"$@"; exec "$0" -li' is POSIX-shell syntax; a fish login shell needs its own line.
+    out=$(hc run --bg --json --cwd "$path" "${hc_args[@]}" \
+          -- "${SHELL:-sh}" -lic '"$@"; exec "$0" -li' "${SHELL:-sh}" "${cmd[@]}" \
+          | jq --arg s "$space" '{space: (if $s == "" then null else $s end), terminal: .address}')
+  fi
+  ws=$(jq -r '.terminal // empty' <<<"$out")
+  [ -n "$ws" ] || die "no terminal was started: $out"
+  jq -c --arg branch "$branch" --arg path "$path" --arg cli "$cli" --arg par "$par" \
+    '{provider: "hc", branch: $branch, path: $path, space_id: .space, tab_id: .tab, terminal: .terminal,
+      parent: (if $par == "" then null else $par end), cli: $cli}' <<<"$out"
+  exit 0
+fi
+if [ "$provider" = rex ]; then
   out=$(rex window new -s "$REX_SESSION" "${label:-$branch}" -c "$path" --json -- "${cmd[@]}")
   ws=$(jq -r '.window_id // empty' <<<"$out")
   pane=$(jq -r '.block_ids[0] // empty' <<<"$out")

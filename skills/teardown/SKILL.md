@@ -1,8 +1,8 @@
 ---
 name: teardown
-description: Tear down finished work — the inverse of kickoff. Runs the repo's own teardown steps if it documents any, removes the worktree this session runs in (or, in the main checkout, switches off its feature branch), deletes the branch if it is merged, then closes the tab or pane the session runs in: the herdr workspace or pane, the Rex tab or pane, or nothing in T3 Code and other hosts. Refuses on the default branch, on main/master and on a detached HEAD. Use when the user invokes /teardown from the session whose work is done. Do NOT use to clean up other worktrees or branches, to prune stale branches in bulk, or to abandon work in progress.
+description: Tear down finished work — the inverse of kickoff. Runs the repo's own teardown steps if it documents any, removes the worktree this session runs in (or, in the main checkout, switches off its feature branch), deletes the branch if it is merged, then closes the tab or pane the session runs in: the herdr workspace or pane, the Rex tab or pane, the Herdr app (herdr-core, `hc`) space or pane, or nothing in T3 Code and other hosts. Refuses on the default branch, on main/master and on a detached HEAD. Use when the user invokes /teardown from the session whose work is done. Do NOT use to clean up other worktrees or branches, to prune stale branches in bulk, or to abandon work in progress.
 argument-hint: "[--force] [--delete-branch] [--close-pane]"
-compatibility: Requires `git` and `jq`. Uses the `wt` CLI (https://worktrunk.dev) when present, plain git otherwise. Closes the session's tab or pane in herdr (https://github.com/herdrdev/herdr) and Rex; other hosts get the git teardown only
+compatibility: Requires `git` and `jq`. Uses the `wt` CLI (https://worktrunk.dev) when present, plain git otherwise. Closes the session's tab or pane in herdr (https://github.com/herdrdev/herdr), Rex and the Herdr app (`herdr-app`, `hc`); other hosts get the git teardown only
 disable-model-invocation: true
 ---
 
@@ -56,6 +56,7 @@ What closes, by `host`:
 
 - **herdr** — the workspace when it is this worktree's workspace, otherwise only the calling pane.
 - **rex** — the tab when this pane is alone in it, otherwise only the calling pane.
+- **hc** (Herdr app, herdr-core) — the space when its folder is this worktree and this is the only terminal in it; otherwise only the calling pane. With no pane in a Herdr window on this machine (a remote machine, the app closed, a child terminal listed under its parent), the terminal's program is ended (`hc kill`).
 - **t3** — nothing: the `t3` CLI cannot archive a thread. Archive it with a T3 Code tool if this session has one; otherwise tell the user to archive the thread.
 - **none** — nothing. Close it with the host's own CLI if this session knows it (`tmux kill-pane`), otherwise tell the user to close it.
 
