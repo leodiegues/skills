@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Self-check for teardown.sh in a throwaway repo. No host is set, so nothing gets closed.
+# Self-check for teardown.sh in a throwaway repo. No host is set outside --check, so nothing gets closed.
 set -euo pipefail
 td="$(cd "$(dirname "$0")" && pwd)/teardown.sh"
 tmp=$(cd "$(mktemp -d)" && pwd -P); trap 'rm -rf "$tmp"' EXIT
-run() { env -u T3CODE_THREAD_ID -u HERDR_ENV -u REX_BLOCK "$td" "$@"; }
+run() { env -u T3CODE_THREAD_ID -u HERDR_ENV -u REX_BLOCK -u HC_TERMINAL_ID "$td" "$@"; }
 fail() { echo "FAIL: $*" >&2; exit 1; }
 # refuses <expected message> [args]: must fail, and for that reason.
 refuses() { local why=$1 out; shift; if out=$(run "$@" 2>&1); then fail "not refused: $why"; fi
@@ -30,6 +30,22 @@ cd "$tmp/repo"; git worktree add -q -b unmerged "$tmp/unmerged"
 echo hi > "$tmp/unmerged/f"; git -C "$tmp/unmerged" add f; commit "$tmp/unmerged"
 [ "$(cd "$tmp/unmerged" && run | jq -r .branch_outcome)" = retained_unmerged ] || fail "unmerged branch outcome"
 git show-ref --verify --quiet refs/heads/unmerged || fail "unmerged branch was deleted"
+
+# Herdr app host, against stubs: the space when it is this worktree's and this terminal is
+# alone in it, else the pane; with no window, the terminal's program.
+mkdir "$tmp/bin"; printf '#!/bin/sh\n' > "$tmp/bin/hc"
+printf '#!/bin/sh\ncat "%s/ls.json"\n' "$tmp" > "$tmp/bin/herdr-app"; chmod +x "$tmp/bin/hc" "$tmp/bin/herdr-app"
+git worktree add -q -b hc "$tmp/hc"; cd "$tmp/hc"
+# hc_closes <space folder> <other terminals in the space, as JSON>
+hc_closes() { jq -n --arg f "$1" --argjson more "$2" \
+    '{spaces: [{id: "sp1", folder: $f, tabs: [{terminals: ([{terminal: "t1", pane: "p1"}] + $more)}]}]}' > "$tmp/ls.json"
+  PATH="$tmp/bin:$PATH" HC_TERMINAL_ID=t1 "$td" --check | jq -r .closes; }
+case "$(hc_closes "$tmp/hc" '[]')" in *space.close*sp1*) ;; *) fail "hc: own space not closed" ;; esac
+case "$(hc_closes "$tmp/hc" '[{"terminal": "t2", "pane": "p2"}]')" in *pane.close*p1*) ;; *) fail "hc: shared space closed" ;; esac
+case "$(hc_closes "$tmp/other" '[]')" in *pane.close*p1*) ;; *) fail "hc: foreign space closed" ;; esac
+rm "$tmp/ls.json"
+[ "$(PATH="$tmp/bin:$PATH" HC_TERMINAL_ID=t1 "$td" --check | jq -r .closes)" = "hc kill t1" ] || fail "hc: no window"
+cd "$tmp/repo"
 
 # Branch in the main checkout: back on main, merged branch deleted.
 git switch -q -c inplace

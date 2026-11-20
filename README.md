@@ -7,8 +7,8 @@ A collection of operational skills for AI coding agents (Claude Code, etc.). Eac
 | Skill | Description |
 |-------|-------------|
 | [delegate](skills/delegate/SKILL.md) | Model orchestration for Fable 5 sessions — plan and judge yourself, hand exploration, implementation, and deeper code review to Opus 5 / Sonnet 5 subagents |
-| [kickoff](skills/kickoff/SKILL.md) | Send a finished plan to execution — creates a [worktrunk](https://worktrunk.dev) worktree for the work item (Linear, GitLab, GitHub, or a plan file), opens it as a child [herdr](https://github.com/herdrdev/herdr) workspace, and starts a Claude session there with a kickoff prompt |
-| [teardown](skills/teardown/SKILL.md) | Tear down finished work — the inverse of `kickoff`: removes the session's worktree (or switches the main checkout off its feature branch), deletes the branch if merged, and closes the session's [herdr](https://github.com/herdrdev/herdr) workspace or Rex tab. Refuses on the default branch |
+| [kickoff](skills/kickoff/SKILL.md) | Send a finished plan to execution — creates a [worktrunk](https://worktrunk.dev) worktree for the work item (Linear, GitLab, GitHub, or a plan file), opens it in the host the session runs in (a T3 Code thread, a child [herdr](https://github.com/herdrdev/herdr) workspace, a Rex tab, or a Herdr app space), and starts an agent session there with a kickoff prompt |
+| [teardown](skills/teardown/SKILL.md) | Tear down finished work — the inverse of `kickoff`: removes the session's worktree (or switches the main checkout off its feature branch), deletes the branch if merged, and closes the session's [herdr](https://github.com/herdrdev/herdr) workspace, Rex tab, or Herdr app space. Refuses on the default branch |
 | [handoff](skills/handoff/SKILL.md) | Compact the current conversation into a handoff document so a fresh agent or session can pick up the work |
 | [pickup](skills/pickup/SKILL.md) | Resume work from a handoff document — the inverse of `handoff`, restores context from the Obsidian vault (with a legacy `~/.claude/handoffs/` fallback) |
 | [obsidian-vault](skills/obsidian-vault/SKILL.md) | File, clip, and find notes in the personal Obsidian vault from any session — routes by zone, derives `<org>/<repo>` project paths, matches live frontmatter, guards sacred zones; defers handoff/pickup |
@@ -36,7 +36,7 @@ This repository is a plugin. In Claude Code, add it as a marketplace and install
 /plugin install leodiegues-skills@leodiegues
 ```
 
-The plugin depends on the [worktrunk](https://github.com/max-sixty/worktrunk) plugin, so add its marketplace first: `/plugin marketplace add max-sixty/worktrunk`. The `kickoff` skill also needs the `wt`, `herdr`, and `jq` binaries on `PATH` and a session started inside herdr; it checks for them before doing anything.
+The plugin depends on the [worktrunk](https://github.com/max-sixty/worktrunk) plugin, so add its marketplace first: `/plugin marketplace add max-sixty/worktrunk`. The `kickoff` skill also needs `jq` and a session started inside T3 Code, herdr, Rex, or the Herdr app (herdr-core), with that host's CLI (`t3`, `herdr`, `rex`, or `hc` and `herdr-app`) and, outside T3 Code, `wt` on `PATH`; it checks for them before doing anything.
 
 ### Mermaid rendering mod
 
