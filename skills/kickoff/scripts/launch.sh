@@ -11,29 +11,34 @@
 #         on this machine, as an hc terminal with no parent. With --parent, as a child
 #         terminal of this one instead: listed under it, typing its notes into it.
 # The agent is the CLI running this script: codex, opencode or claude.
+#   launch.sh --host
 #   launch.sh <branch> [--base REF] [--label TEXT] [--reuse] [--parent] < kickoff
 # Prints one JSON line: provider, branch, then per provider
+#   --host: provider, plus terminal (hc) and cli (all but t3)
 #   t3:    thread_id, link, path
 #   herdr: path, workspace_id, pane_id, agent, cli
 #   rex:   path, session_id, window_id, block_id, cli
-#   hc:    path, space_id, tab_id, terminal, parent, cli
+#   hc:    path, space_id, tab_id, terminal, name, parent, cli
 set -euo pipefail
 
 die() { echo "kickoff: $*" >&2; exit 1; }
 
-branch="" base="" label="" reuse=0 parent=0
+branch="" base="" label="" reuse=0 parent=0 host_only=0
 while [ $# -gt 0 ]; do
   case "$1" in
-    --base)  base="${2:-}"; shift 2 ;;
-    --label) label="${2:-}"; shift 2 ;;
-    --reuse) reuse=1; shift ;;
+    --host)   host_only=1; shift ;;
+    --base)   [ $# -ge 2 ] || die "--base requires a ref"; base="$2"; shift 2 ;;
+    --label)  [ $# -ge 2 ] || die "--label requires text"; label="$2"; shift 2 ;;
+    --reuse)  reuse=1; shift ;;
     --parent) parent=1; shift ;;
-    -*)      die "unknown option: $1" ;;
-    *)       branch="$1"; shift ;;
+    -*)       die "unknown option: $1" ;;
+    *)        branch="$1"; shift ;;
   esac
 done
-[ -n "$branch" ] || die "usage: launch.sh <branch> [--base REF] [--label TEXT] [--reuse] [--parent] < kickoff"
-[ "$reuse" = 0 ] || [ -z "$base" ] || die "--base only applies to a new branch; drop it or drop --reuse"
+if [ "$host_only" = 0 ]; then
+  [ -n "$branch" ] || die "usage: launch.sh <branch> [--base REF] [--label TEXT] [--reuse] [--parent] < kickoff"
+  [ "$reuse" = 0 ] || [ -z "$base" ] || die "--base only applies to a new branch; drop it or drop --reuse"
+fi
 
 # Preflight: everything below creates state, so fail before any of it exists.
 # Innermost host first: HERDR_ENV can leak into T3 Code when its server was started from a
@@ -43,13 +48,6 @@ if [ -n "${T3CODE_THREAD_ID:-}" ]; then
   provider=t3
   t3="${T3CODE_CLI_PATH:-t3}"
   command -v "$t3" >/dev/null || die "t3 CLI not found (T3CODE_CLI_PATH or PATH)"
-  [ "$reuse" = 0 ] || die "--reuse is not supported in T3 Code: its CLI only starts threads on a new branch"
-  git show-ref --verify --quiet "refs/heads/$branch" && die "branch already exists: $branch"
-  [ "$base" != @ ] || base=$(git rev-parse --abbrev-ref HEAD)
-  if [ -z "$base" ]; then
-    base=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null) || die "no origin/HEAD to base on; pass --base"
-    base=${base#origin/}
-  fi
 elif [ "${HERDR_ENV:-}" = 1 ] && [ -n "${HERDR_WORKSPACE_ID:-}" ]; then
   provider=herdr
   command -v herdr >/dev/null || die "herdr not found on PATH: https://github.com/herdrdev/herdr"
@@ -65,7 +63,7 @@ elif [ -n "${HC_TERMINAL_ID:-}" ]; then
 else
   die "not running inside T3 Code (T3CODE_THREAD_ID), a herdr pane (HERDR_ENV=1), a Rex terminal (REX_SESSION) or a Herdr app terminal (HC_TERMINAL_ID)"
 fi
-[ "$parent" = 0 ] || [ "$provider" = hc ] || die "--parent needs a Herdr app or herdr-core terminal (HC_TERMINAL_ID); this host is $provider"
+cli=""
 if [ "$provider" != t3 ]; then
   # Same agent CLI as this session (T3 Code carries its provider over itself).
   # yolo: the new session runs unattended in its own worktree, so skip permission prompts.
@@ -77,6 +75,24 @@ if [ "$provider" != t3 ]; then
   command -v "$cli" >/dev/null || die "$cli not found on PATH"
 fi
 command -v jq >/dev/null || die "jq not found on PATH"
+
+if [ "$host_only" = 1 ]; then
+  term=""; [ "$provider" != hc ] || term=$HC_TERMINAL_ID
+  jq -cn --arg provider "$provider" --arg cli "$cli" --arg term "$term" \
+    '{provider: $provider} + (if $term != "" then {terminal: $term} else {} end) + (if $cli != "" then {cli: $cli} else {} end)'
+  exit 0
+fi
+
+if [ "$provider" = t3 ]; then
+  [ "$reuse" = 0 ] || die "--reuse is not supported in T3 Code: its CLI only starts threads on a new branch"
+  git show-ref --verify --quiet "refs/heads/$branch" && die "branch already exists: $branch"
+  [ "$base" != @ ] || base=$(git rev-parse --abbrev-ref HEAD)
+  if [ -z "$base" ]; then
+    base=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null) || die "no origin/HEAD to base on; pass --base"
+    base=${base#origin/}
+  fi
+fi
+[ "$parent" = 0 ] || [ "$provider" = hc ] || die "--parent needs a Herdr app or herdr-core terminal (HC_TERMINAL_ID); this host is $provider"
 [ -t 0 ] && die "no kickoff prompt: pipe it on stdin"
 kickoff=$(cat)
 [ -n "$kickoff" ] || die "empty kickoff prompt on stdin"
@@ -122,11 +138,18 @@ if [ "$provider" != herdr ]; then
     *opencode) cmd=(opencode "$yolo" --prompt "$kickoff") ;;
     # Under hc, Codex's shared daemon would run its commands outside the terminal.
     hccodex)   cmd=(codex "$yolo" --no-daemon "$kickoff") ;;
+    # Claude Code's --name sets the session display name and terminal title, so Herdr's
+    # sidebar tree shows the label even on nested child terminals without a tab.
+    *claude)
+      cmd=(claude "$yolo")
+      [ -z "$label" ] || cmd+=(--name "$label")
+      cmd+=("$kickoff")
+      ;;
     *)         cmd=("$cli" "$yolo" "$kickoff") ;;
   esac
 fi
 if [ "$provider" = hc ]; then
-  space="" par=""
+  space="" par="" name=""
   if [ "$parent" = 0 ] && command -v herdr-app >/dev/null && herdr-app ls >/dev/null 2>&1; then
     # A Herdr window is open here: a new space on the worktree, shown at once. It gets no
     # name, so the app and its mods call it after its checkout; the label names its tab.
@@ -141,7 +164,8 @@ if [ "$provider" = hc ]; then
       # (blocked, exited) into this session, and its name is its address for hc send.
       # It outlives this session, so closing the planner does not end work in flight.
       par=$HC_TERMINAL_ID
-      hc_args=(--name "$agent" --outlive-parent)
+      name=$agent
+      hc_args=(--parent "$HC_TERMINAL_ID" --name "$agent" --outlive-parent)
     else
       # No window here (another machine, app closed): a terminal with no parent, in this
       # terminal's space when it has one, where a window elsewhere shows it as a new tab.
@@ -158,8 +182,9 @@ if [ "$provider" = hc ]; then
   fi
   ws=$(jq -r '.terminal // empty' <<<"$out")
   [ -n "$ws" ] || die "no terminal was started: $out"
-  jq -c --arg branch "$branch" --arg path "$path" --arg cli "$cli" --arg par "$par" \
+  jq -c --arg branch "$branch" --arg path "$path" --arg cli "$cli" --arg par "$par" --arg name "$name" \
     '{provider: "hc", branch: $branch, path: $path, space_id: .space, tab_id: .tab, terminal: .terminal,
+      name: (if $name == "" then null else $name end),
       parent: (if $par == "" then null else $par end), cli: $cli}' <<<"$out"
   exit 0
 fi

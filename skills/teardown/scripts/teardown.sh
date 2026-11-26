@@ -14,24 +14,48 @@
 #   t3    — nothing: its CLI cannot archive a thread.
 #   none  — nothing.
 # A branch in the main checkout keeps its pane (the checkout is still there) unless --close-pane.
-#   teardown.sh [--check] [--force] [--delete-branch] [--close-pane]
+# With --terminal ID (Herdr app / herdr-core parent session only), tear down a nested child
+# terminal's linked worktree and close that child instead of this session.
+#   teardown.sh [--check] [--force] [--delete-branch] [--close-pane] [--terminal ID]
 # Prints one JSON line. --check changes nothing and prints what a run would do.
 set -euo pipefail
 
 die() { echo "teardown: $*" >&2; exit 1; }
 
-check=0 force=0 delete=0 close_main=0
+check=0 force=0 delete=0 close_main=0 target_term=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --check)         check=1 ;;
     --force)         force=1 ;;
     --delete-branch) delete=1 ;;
     --close-pane)    close_main=1 ;;
-    *)               die "usage: teardown.sh [--check] [--force] [--delete-branch] [--close-pane]" ;;
+    --terminal)      target_term="${2:-}"; [ -n "$target_term" ] || die "--terminal requires a terminal ID or name"; shift ;;
+    *)               die "usage: teardown.sh [--check] [--force] [--delete-branch] [--close-pane] [--terminal ID]" ;;
   esac
   shift
 done
 command -v jq >/dev/null || die "jq not found on PATH"
+
+caller_top="" child_addr="" child_state=""
+if [ -n "$target_term" ]; then
+  if [ -n "${T3CODE_THREAD_ID:-}" ] \
+     || { [ "${HERDR_ENV:-}" = 1 ] && [ -n "${HERDR_PANE_ID:-}" ]; } \
+     || { [ -n "${REX_BLOCK:-}" ] && [ -n "${REX_SESSION:-}" ]; } \
+     || [ -z "${HC_TERMINAL_ID:-}" ]; then
+    die "--terminal needs a Herdr app or herdr-core session (HC_TERMINAL_ID)"
+  fi
+  command -v hc >/dev/null || die "hc (herdr-core) not found on PATH"
+  caller_top=$(git rev-parse --show-toplevel 2>/dev/null || true)
+  info=$(hc get "$target_term" --json)
+  child_addr=$(jq -r '.address // empty' <<<"$info")
+  child_parent=$(jq -r '.parent // empty' <<<"$info")
+  child_state=$(jq -r '.state // empty' <<<"$info")
+  child_cwd=$(jq -r '.cwd // .foreground.cwd // empty' <<<"$info")
+  [ -n "$child_addr" ] || die "hc get returned no terminal address for $target_term"
+  [ "$child_parent" = "$HC_TERMINAL_ID" ] || die "$target_term ($child_addr) is not a child of this session ($HC_TERMINAL_ID)"
+  [ -n "$child_cwd" ] && [ -d "$child_cwd" ] || die "child terminal $target_term ($child_addr) directory not found: ${child_cwd:-none}"
+  cd "$child_cwd"
+fi
 
 # Guards first: nothing below runs on a default branch.
 top=$(git rev-parse --show-toplevel 2>/dev/null) || die "not inside a git work tree"
@@ -54,6 +78,10 @@ esac
 
 linked=false
 [ "$(git rev-parse --path-format=absolute --git-dir)" = "$(git rev-parse --path-format=absolute --git-common-dir)" ] || linked=true
+if [ -n "$target_term" ]; then
+  [ "$linked" = true ] || die "child terminal $target_term ($child_addr) is in the main checkout ($top), not a linked worktree; refusing to switch it from the parent session"
+  [ -z "$caller_top" ] || [ "$top" != "$caller_top" ] || die "child terminal $target_term ($child_addr) is in this session's own worktree ($top); refusing to remove it from the parent session"
+fi
 main=$(git worktree list --porcelain | sed -n '1s/^worktree //p')
 dirty=$(git status --porcelain)
 # Commits that exist on this branch only: not on a remote, not on the default branch.
@@ -62,8 +90,26 @@ local_only=$(git rev-list --count HEAD --not --remotes "$default")
 # What to close. Innermost host first, as in kickoff: HERDR_ENV can leak into T3 Code,
 # and REX_* leaks into herdr panes started from a Rex terminal. HC_TERMINAL_ID last: it
 # leaks into every one of them when they are started from a Herdr app terminal.
+hc_close() {
+  local tid=$1 at
+  close=(hc kill "$tid")
+  # Terminal ID is not a pane id: the window knows the pane and the space it sits in.
+  at=$(herdr-app ls 2>/dev/null | jq -c --arg t "$tid" 'first(.spaces[] | . as $s
+       | .tabs[].terminals[] | select(.terminal == $t)
+       | {id: $s.id, folder: $s.folder, alone: ([$s.tabs[].terminals[]] | length == 1), pane})' 2>/dev/null || true)
+  if [ -n "$at" ]; then
+    close=(herdr-app do pane.close "$(jq -c '{pane}' <<<"$at")")
+    # space.close ends every terminal in the space, so only when this one is the last.
+    [ "$linked" = false ] || [ "$(jq -r 'select(.alone) | .folder' <<<"$at")" != "$top" ] \
+      || close=(herdr-app do space.close "$(jq -c '{id, confirmed: true}' <<<"$at")")
+  fi
+}
+
 host=none close=()
-if [ -n "${T3CODE_THREAD_ID:-}" ]; then
+if [ -n "$target_term" ]; then
+  host=hc
+  [ "$child_state" != live ] || hc_close "$child_addr"
+elif [ -n "${T3CODE_THREAD_ID:-}" ]; then
   host=t3
 elif [ "${HERDR_ENV:-}" = 1 ] && [ -n "${HERDR_PANE_ID:-}" ]; then
   host=herdr
@@ -88,18 +134,7 @@ elif [ -n "${REX_BLOCK:-}" ] && [ -n "${REX_SESSION:-}" ]; then
 elif [ -n "${HC_TERMINAL_ID:-}" ]; then
   host=hc
   command -v hc >/dev/null || die "hc (herdr-core) not found on PATH"
-  # Without a pane in a Herdr window on this machine, end the terminal's program.
-  close=(hc kill "$HC_TERMINAL_ID")
-  # HC_TERMINAL_ID is not a pane id: the window knows the pane and the space it sits in.
-  at=$(herdr-app ls 2>/dev/null | jq -c --arg t "$HC_TERMINAL_ID" 'first(.spaces[] | . as $s
-       | .tabs[].terminals[] | select(.terminal == $t)
-       | {id: $s.id, folder: $s.folder, alone: ([$s.tabs[].terminals[]] | length == 1), pane})' 2>/dev/null || true)
-  if [ -n "$at" ]; then
-    close=(herdr-app do pane.close "$(jq -c '{pane}' <<<"$at")")
-    # space.close ends every terminal in the space, so only when this one is the last.
-    [ "$linked" = false ] || [ "$(jq -r 'select(.alone) | .folder' <<<"$at")" != "$top" ] \
-      || close=(herdr-app do space.close "$(jq -c '{id, confirmed: true}' <<<"$at")")
-  fi
+  hc_close "$HC_TERMINAL_ID"
 fi
 [ "$linked" = true ] || [ "$close_main" = 1 ] || close=()
 closes=${close[*]:-}
@@ -153,5 +188,5 @@ jq -cn --arg branch "$branch" --arg path "$top" --arg worktree "$worktree" --arg
   --arg host "$host" --arg closes "$closes" \
   '{branch: $branch, path: $path, worktree: $worktree, branch_outcome: $outcome, host: $host, closes: $closes}'
 
-# Last: this ends the session that is running this script.
+# Last: ends this session (or the target child with --terminal).
 [ ${#close[@]} -eq 0 ] || "${close[@]}" >/dev/null
