@@ -26,8 +26,8 @@ if [ "\$1" = ls ]; then [ -f "$tmp/window" ] || exit 1; printf '{"spaces":[]}\n'
 printf '%s\n' "\$3" > "$tmp/space-new.json"
 printf '{"space":"sp2","tab":"tab1","terminal":"t20"}\n'
 EOF
-# Stub claude, codex, rex, herdr, t3.
-for b in claude codex rex herdr t3; do
+# Stub claude, codex, agy, rex, herdr, t3.
+for b in claude codex agy rex herdr t3; do
   printf '#!/bin/sh\n' > "$tmp/bin/$b"
 done
 chmod +x "$tmp/bin/"*
@@ -38,6 +38,7 @@ run() {
   [ "${1:-}" != -- ] || shift
   env -u T3CODE_THREAD_ID -u T3CODE_CLI_PATH -u HERDR_ENV -u HERDR_WORKSPACE_ID \
       -u REX_SESSION -u HC_TERMINAL_ID -u CODEX_THREAD_ID -u OPENCODE -u CLAUDECODE \
+      -u ANTIGRAVITY_AGENT \
       PATH="$tmp/bin:$PATH" "${envs[@]}" "$lnch" "$@"
 }
 
@@ -50,6 +51,9 @@ out=$(run HC_TERMINAL_ID=t5 REX_SESSION=s1 CLAUDECODE=1 -- --host)
 
 out=$(run HC_TERMINAL_ID=t5 T3CODE_THREAD_ID=th1 -- --host)
 [ "$(jq -c '[.provider, .terminal, .cli]' <<<"$out")" = '["t3",null,null]' ] || fail "--host t3 precedence: $out"
+
+out=$(run HC_TERMINAL_ID=t5 ANTIGRAVITY_AGENT=1 -- --host)
+[ "$(jq -c '[.provider, .terminal, .cli]' <<<"$out")" = '["hc","t5","agy"]' ] || fail "--host agy: $out"
 
 # hc with --parent: nests under HC_TERMINAL_ID, names terminal after branch, passes Claude --name label.
 touch "$tmp/window"
@@ -69,6 +73,12 @@ out=$(printf 'implement EVE-2720' | run HC_TERMINAL_ID=t5 CLAUDECODE=1 -- --labe
   = '["hc","eve-2720-build","t20",null,null,"sp2","tab1","claude"]' ] || fail "hc space.new output: $out"
 [ "$(jq -c '.argv' "$tmp/space-new.json")" \
   = '["claude","--dangerously-skip-permissions","--name","EVE-2720 build","implement EVE-2720"]' ] || fail "hc space.new argv: $(cat "$tmp/space-new.json")"
+
+# agy uses --dangerously-skip-permissions and --prompt-interactive for the kickoff prompt.
+out=$(printf 'implement EVE-2721' | run HC_TERMINAL_ID=t5 ANTIGRAVITY_AGENT=1 -- --label "EVE-2721 build" eve-2721-build)
+[ "$(jq -c '[.provider, .branch, .cli]' <<<"$out")" = '["hc","eve-2721-build","agy"]' ] || fail "hc agy output: $out"
+[ "$(jq -c '.argv' "$tmp/space-new.json")" \
+  = '["agy","--dangerously-skip-permissions","--prompt-interactive","implement EVE-2721"]' ] || fail "hc agy argv: $(cat "$tmp/space-new.json")"
 
 # hc without --parent and no window open: headless fallback uses --no-parent and inherits herdr.space.
 rm "$tmp/window"

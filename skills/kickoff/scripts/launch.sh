@@ -10,7 +10,7 @@
 #         space in the Herdr window, with this session's agent started there; with no window
 #         on this machine, as an hc terminal with no parent. With --parent, as a child
 #         terminal of this one instead: listed under it, typing its notes into it.
-# The agent is the CLI running this script: codex, opencode or claude.
+# The agent is the CLI running this script: codex, opencode, claude or agy.
 #   launch.sh --host
 #   launch.sh <branch> [--base REF] [--label TEXT] [--reuse] [--parent] < kickoff
 # Prints one JSON line: provider, branch, then per provider
@@ -67,10 +67,11 @@ cli=""
 if [ "$provider" != t3 ]; then
   # Same agent CLI as this session (T3 Code carries its provider over itself).
   # yolo: the new session runs unattended in its own worktree, so skip permission prompts.
-  if   [ -n "${CODEX_THREAD_ID:-}" ]; then cli=codex    yolo=--yolo
-  elif [ "${OPENCODE:-}" = 1 ];      then cli=opencode yolo=--auto
-  elif [ "${CLAUDECODE:-}" = 1 ];    then cli=claude   yolo=--dangerously-skip-permissions
-  else die "unknown calling agent: expected Codex (CODEX_THREAD_ID), OpenCode (OPENCODE=1) or Claude Code (CLAUDECODE=1)"
+  if   [ -n "${CODEX_THREAD_ID:-}" ];    then cli=codex    yolo=--yolo
+  elif [ "${OPENCODE:-}" = 1 ];          then cli=opencode yolo=--auto
+  elif [ "${CLAUDECODE:-}" = 1 ];        then cli=claude   yolo=--dangerously-skip-permissions
+  elif [ "${ANTIGRAVITY_AGENT:-}" = 1 ]; then cli=agy      yolo=--dangerously-skip-permissions
+  else die "unknown calling agent: expected Codex (CODEX_THREAD_ID), OpenCode (OPENCODE=1), Claude Code (CLAUDECODE=1) or Antigravity (ANTIGRAVITY_AGENT=1)"
   fi
   command -v "$cli" >/dev/null || die "$cli not found on PATH"
 fi
@@ -136,6 +137,7 @@ if [ "$provider" != herdr ]; then
   # the agent submits it once any startup dialog (folder trust) is answered.
   case "$provider$cli" in
     *opencode) cmd=(opencode "$yolo" --prompt "$kickoff") ;;
+    *agy)      cmd=(agy "$yolo" --prompt-interactive "$kickoff") ;;
     # Under hc, Codex's shared daemon would run its commands outside the terminal.
     hccodex)   cmd=(codex "$yolo" --no-daemon "$kickoff") ;;
     # Claude Code's --name sets the session display name and terminal title, so Herdr's
